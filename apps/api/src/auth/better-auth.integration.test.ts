@@ -8,13 +8,14 @@ import { createBetterAuthGateway } from './create-better-auth.js';
 const databaseUrl = process.env.TEST_DATABASE_URL;
 const database = databaseUrl === undefined ? null : createDatabase(databaseUrl);
 const integration = describe.skipIf(database === null);
+const integrationTestAuthSecret = '0'.repeat(32);
 
 const environment: ApiEnvironment = {
   API_HOST: '127.0.0.1',
   API_PORT: 3001,
   AUTH_RATE_LIMIT_MAX: 100,
   AUTH_RATE_LIMIT_WINDOW_SECONDS: 60,
-  BETTER_AUTH_SECRET: 'integration-test-secret-with-at-least-32-characters',
+  BETTER_AUTH_SECRET: integrationTestAuthSecret,
   BETTER_AUTH_URL: 'http://localhost:3001',
   DATABASE_URL: databaseUrl ?? 'postgres://unused',
   MAX_REQUEST_BODY_BYTES: 32_768,

@@ -18,7 +18,7 @@ jobs:
       API_PORT: 3001
       AUTH_RATE_LIMIT_MAX: 100
       AUTH_RATE_LIMIT_WINDOW_SECONDS: 60
-      BETTER_AUTH_SECRET: ci-only-secret-with-at-least-32-characters
+      BETTER_AUTH_SECRET: '00000000000000000000000000000000'
       BETTER_AUTH_URL: http://127.0.0.1:3001
       DATABASE_URL: postgres://three_stone_game:ci-only@127.0.0.1:5432/three_stone_game
       MAX_REQUEST_BODY_BYTES: 32768
@@ -42,18 +42,18 @@ jobs:
           - 5432:5432
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Scan committed content for secrets
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.34.5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -78,7 +78,7 @@ jobs:
 
       - name: Retain the browser report on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: apps/web/playwright-report

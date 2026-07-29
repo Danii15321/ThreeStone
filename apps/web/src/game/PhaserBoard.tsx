@@ -155,10 +155,7 @@ function drawBoard(
   if (!reducedMotion && model.dropStone === null) {
     openHands
       .setAlpha(0)
-      .setScale(
-        openMotion.revealTransition.scaleX,
-        openMotion.revealTransition.scaleY,
-      )
+      .setScale(openMotion.revealTransition.scaleX, openMotion.revealTransition.scaleY)
       .setPosition(openMotion.revealTransition.x, openMotion.revealTransition.y);
     scene.tweens.add({
       alpha: 0,
