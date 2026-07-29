@@ -9,6 +9,20 @@ test('creates a username account, finishes a solo game and persists its result',
   const password = 'E2E-Password-2026!';
   const changedPassword = 'E2E-Changed-2026!';
 
+  await page.addInitScript(() => {
+    // Keep the complete game journey reproducible without changing production randomness.
+    const nativeGetRandomValues = crypto.getRandomValues.bind(crypto);
+    Object.defineProperty(crypto, 'getRandomValues', {
+      configurable: true,
+      value: (array: ArrayBufferView): ArrayBufferView => {
+        if (array instanceof Uint32Array && array.length === 1) {
+          array[0] = 0x5eed;
+          return array;
+        }
+        return nativeGetRandomValues(array);
+      },
+    });
+  });
   await page.goto('/');
 
   await expect(page.getByRole('heading', { name: 'ThreeStone' })).toBeVisible();
