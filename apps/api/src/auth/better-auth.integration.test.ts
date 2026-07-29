@@ -17,6 +17,7 @@ const environment: ApiEnvironment = {
   AUTH_RATE_LIMIT_WINDOW_SECONDS: 60,
   BETTER_AUTH_SECRET: integrationTestAuthSecret,
   BETTER_AUTH_URL: 'http://localhost:3001',
+  DATABASE_MAX_CONNECTIONS: 10,
   DATABASE_URL: databaseUrl ?? 'postgres://unused',
   MAX_REQUEST_BODY_BYTES: 32_768,
   NODE_ENV: 'test',

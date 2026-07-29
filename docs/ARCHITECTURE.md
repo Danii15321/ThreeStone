@@ -849,22 +849,29 @@ Toute télémétrie produit nécessite une décision de consentement et de réte
 
 ### Production
 
-Topologie initiale recommandée :
+Topologie v1 déployée :
 
 ```mermaid
 flowchart LR
-    Browser["Navigateur"] --> Edge["TLS / reverse proxy"]
-    Edge -->|"/"| Static["Assets web statiques"]
-    Edge -->|"/api/*"| Api["API Node"]
+    Browser["Navigateur"] --> Edge["Vercel CDN / TLS"]
+    Edge -->|"/ et routes SPA"| Static["Build Vite statique"]
+    Edge -->|"/api/*"| Api["Fonction Node / Hono"]
     Edge -->|"/game/* v2"| Game["Colyseus"]
-    Api --> Db[("PostgreSQL managé")]
+    Api -->|URL poolée, pool = 1| Db[("Neon PostgreSQL · Europe")]
     Game --> Db
 ```
 
-L'API doit rester stateless hors session persistée. Une seule instance Colyseus
-est suffisante au lancement v2 si les mesures le permettent. Redis et le
-routage multi-instance ne sont ajoutés qu'avec une stratégie explicite de
-présence et d'affinité des salles.
+Le projet Vercel racine produit `apps/web/dist` et une fonction unique
+`api/index.mjs`. Une réécriture conserve le chemin `/api/*` attendu par Hono.
+L'API reste stateless hors sessions persistées. Les migrations sont une
+opération de release explicite utilisant l'URL Neon non poolée ; elles ne
+s'exécutent jamais pendant le démarrage d'une fonction. Les secrets de
+production et de preview restent distincts.
+
+La v2 temps réel ne doit pas supposer que Colyseus sera hébergé par la même
+fonction. Une seule instance Colyseus est suffisante au lancement v2 si les
+mesures le permettent. Redis et le routage multi-instance ne sont ajoutés
+qu'avec une stratégie explicite de présence et d'affinité des salles.
 
 ## Stratégie de tests
 

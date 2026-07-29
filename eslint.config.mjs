@@ -12,6 +12,7 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/playwright-report/**',
       '**/test-results/**',
+      '.vercel/**',
     ],
   },
   eslint.configs.recommended,
@@ -35,7 +36,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['apps/api/**/*.ts', 'packages/**/*.ts', '*.config.{js,mjs,ts}'],
+    files: ['api/**/*.mjs', 'apps/api/**/*.ts', 'packages/**/*.ts', '*.config.{js,mjs,ts}'],
     languageOptions: {
       globals: globals.node,
     },

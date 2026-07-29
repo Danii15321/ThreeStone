@@ -27,7 +27,11 @@ la date.
    authentification par pseudonyme, sans email ;
 9. [`ADR-0013`](./ADR-0013-profil-bio-avatar.md) — bio, avatar et présentation
    du profil v1.
+10. [`ADR-0014`](./ADR-0014-deploiement-vercel-v1.md) — déploiement Vercel,
+    fonction Hono et PostgreSQL Neon pour la v1.
 
 Les numéros `0006` à `0009` restent réservés aux décisions v2 déjà annoncées
 dans l’architecture. L’ADR-0012 est la décision courante pour
 l’authentification ; les ADR-0002 et ADR-0005 conservent l’historique remplacé.
+L’ADR-0014 précise le fournisseur et remplace les détails conteneurisés de
+l’ADR-0010 sans changer son exigence d’origine unique.

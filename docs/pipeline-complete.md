@@ -1264,11 +1264,21 @@ terminée. Toute fonctionnalité supplémentaire ouvre une nouvelle roadmap.
 - artefact déjà vérifié, jamais reconstruit différemment ;
 - approbation ;
 - sauvegarde ;
-- migration ;
-- déploiement ;
+- récupération contrôlée des variables Vercel de production ;
+- migration Neon explicite avec l'URL non poolée ;
+- déploiement du projet Vercel racine ;
 - smoke tests ;
 - observation ;
-- décision de clôture ou rollback.
+- décision de clôture ou rollback vers le déploiement Vercel précédent.
+
+Pour la v1 Vercel, les preuves minimales sont :
+
+- `pnpm check` ;
+- `vercel build --prod` sans erreur TypeScript ni route manquante ;
+- migrations appliquées avec `scripts/migrate-vercel-production.sh` ;
+- réponses valides de `/`, `/api/health/live` et `/api/health/ready` ;
+- création, connexion et suppression d'un compte de smoke test ;
+- vérification qu'aucune variable sensible n'est suivie par Git.
 
 # Gestion d'un bug
 

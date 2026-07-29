@@ -408,9 +408,10 @@ faire passer l'implémentation.
 ## Critères de réussite de la v1
 
 La candidate actuelle satisfait les critères fonctionnels ci-dessous sur un
-environnement local propre. La qualification staging, la répétition de
-restauration et le déploiement de production restent des opérations de release,
-pas des fonctionnalités à simuler dans le dépôt.
+environnement local propre. La qualification staging et la répétition de
+restauration restent des opérations de release. La production v1 utilise un
+projet Vercel unique et PostgreSQL Neon conformément à
+[`ADR-0014`](./docs/decisions/ADR-0014-deploiement-vercel-v1.md).
 
 - une partie peut être jouée du début à la fin sans blocage ;
 - un joueur peut créer son compte par pseudonyme, ouvrir et fermer une session,
@@ -441,6 +442,24 @@ Preuves reproductibles :
   suppression, plus le mobile et la réduction des mouvements sur Chromium,
   Firefox et WebKit ;
 - la CI démarre PostgreSQL, applique les migrations puis rejoue ces contrôles.
+
+## Déploiement Vercel
+
+Le projet racine sert le client Vite et l'API Hono sous la même origine HTTPS.
+Les variables de connexion Neon et les secrets Better Auth sont gérés par
+Vercel et ne doivent jamais être copiés dans un fichier suivi par Git.
+
+Séquence de release :
+
+1. `pnpm check` ;
+2. `vercel pull --yes --environment=production` ;
+3. `bash scripts/migrate-vercel-production.sh` ;
+4. `vercel build --prod` ;
+5. `vercel deploy --prebuilt --prod` ;
+6. smoke tests sur l'accueil, liveness, readiness et le parcours de compte.
+
+Les migrations utilisent `DATABASE_URL_UNPOOLED`, tandis que les fonctions
+utilisent `DATABASE_URL` avec `DATABASE_MAX_CONNECTIONS=1`.
 
 ## Documentation associée
 
