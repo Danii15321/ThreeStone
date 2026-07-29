@@ -1,0 +1,112 @@
+:root {
+  color: #eadfce;
+  background: #1a1411;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+
+  --font-display: Georgia, 'Palatino Linotype', 'Book Antiqua', serif;
+  --color-bg-deep: #171210;
+  --color-bg: #211813;
+  --color-surface: #2d221d;
+  --color-surface-raised: #3b2b23;
+  --color-leather: #5b3528;
+  --color-leather-light: #81503a;
+  --color-stone-dark: #4d4843;
+  --color-stone: #81786e;
+  --color-stone-light: #b8aea0;
+  --color-parchment: #eadfca;
+  --color-parchment-light: #f6eddc;
+  --color-heading: #fff4df;
+  --color-muted: #c9baa7;
+  --color-accent: #c98b46;
+  --color-accent-light: #edc477;
+  --color-accent-dark: #8b562d;
+  --color-success: #8ea36e;
+  --color-danger: #c06b55;
+  --color-border: rgb(202 157 103 / 48%);
+  --shadow-panel: 0 1.5rem 3.5rem rgb(8 4 2 / 38%);
+  --shadow-inset: inset 0 1px rgb(255 244 218 / 10%), inset 0 -2px rgb(18 9 5 / 42%);
+  --radius-panel: 0.9rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.75rem;
+  --space-xl: 2.5rem;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 20rem;
+  background: var(--color-bg-deep);
+}
+
+body {
+  min-width: 20rem;
+  min-height: 100dvh;
+  margin: 0;
+  background:
+    radial-gradient(circle at 18% 12%, rgb(191 104 50 / 18%), transparent 24rem),
+    radial-gradient(circle at 82% 22%, rgb(155 113 76 / 12%), transparent 28rem),
+    linear-gradient(90deg, rgb(0 0 0 / 16%) 1px, transparent 1px) 0 0 / 9rem 100%,
+    repeating-linear-gradient(0deg, transparent 0 8.8rem, rgb(224 177 115 / 4%) 8.8rem 8.86rem),
+    linear-gradient(135deg, #241a15, #171210 58%, #211713);
+}
+
+body::before {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  background:
+    linear-gradient(115deg, transparent 0 56%, rgb(255 211 145 / 3%) 56% 56.2%, transparent 56.2%),
+    radial-gradient(ellipse at center, transparent 42%, rgb(6 3 2 / 48%));
+  content: '';
+  pointer-events: none;
+}
+
+button,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  touch-action: manipulation;
+}
+
+::selection {
+  color: #21150e;
+  background: var(--color-accent-light);
+}
+
+:focus-visible {
+  outline: 0.2rem solid var(--color-accent-light);
+  outline-offset: 0.2rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

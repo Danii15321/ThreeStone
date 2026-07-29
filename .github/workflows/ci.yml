@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      API_HOST: 127.0.0.1
+      API_PORT: 3001
+      AUTH_RATE_LIMIT_MAX: 100
+      AUTH_RATE_LIMIT_WINDOW_SECONDS: 60
+      BETTER_AUTH_SECRET: ci-only-secret-with-at-least-32-characters
+      BETTER_AUTH_URL: http://127.0.0.1:3001
+      DATABASE_URL: postgres://three_stone_game:ci-only@127.0.0.1:5432/three_stone_game
+      MAX_REQUEST_BODY_BYTES: 32768
+      TEST_DATABASE_URL: postgres://three_stone_game:ci-only@127.0.0.1:5432/three_stone_game
+      VITE_API_URL: http://127.0.0.1:3001
+      WEB_ORIGIN: http://localhost:5173
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: three_stone_game
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_USER: three_stone_game
+        options: >-
+          --health-cmd "pg_isready -U three_stone_game -d three_stone_game"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan committed content for secrets
+        uses: gitleaks/gitleaks-action@v2
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit high-severity dependency advisories
+        run: pnpm audit --audit-level high
+
+      - name: Apply database migrations
+        run: pnpm db:migrate
+
+      - name: Run quality gates
+        run: pnpm check
+
+      - name: Install browser engines
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
+
+      - name: Run browser journeys
+        run: pnpm test:e2e
+
+      - name: Retain the browser report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7

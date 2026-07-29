@@ -1,0 +1,23 @@
+.frame {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  border: 1px solid #9c6b42;
+  border-radius: 1rem;
+  background: #201612;
+  box-shadow:
+    var(--shadow-inset),
+    0 1.25rem 3rem rgb(0 0 0 / 32%);
+}
+
+.canvasHost {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  background: radial-gradient(circle at center, #493126, #1c1411 72%);
+}
+
+.canvasHost canvas {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+}
