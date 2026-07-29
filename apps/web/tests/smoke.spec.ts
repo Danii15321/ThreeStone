@@ -39,7 +39,17 @@ test('creates a username account, finishes a solo game and persists its result',
   await page.getByRole('tab', { name: 'Inscription' }).click();
   await page.locator('input[name="username"]').fill(username);
   await page.locator('input[name="password"]').fill(password);
+  const signUpResponsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().endsWith('/api/auth/sign-up/username'),
+  );
   await page.getByRole('button', { name: 'Créer le compte' }).click();
+  const signUpResponse = await signUpResponsePromise;
+  expect(
+    signUpResponse.status(),
+    `L'inscription a échoué (${signUpResponse.status()}): ${await signUpResponse.text()}`,
+  ).toBe(200);
   await expect(page.getByRole('heading', { name: username })).toBeVisible();
   await expect(page.getByText(`@${username.toLowerCase()}`)).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Profil' })).toBeVisible();
