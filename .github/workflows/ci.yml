@@ -19,11 +19,11 @@ jobs:
       AUTH_RATE_LIMIT_MAX: 100
       AUTH_RATE_LIMIT_WINDOW_SECONDS: 60
       BETTER_AUTH_SECRET: '00000000000000000000000000000000'
-      BETTER_AUTH_URL: http://127.0.0.1:3001
+      BETTER_AUTH_URL: http://localhost:3001
       DATABASE_URL: postgres://three_stone_game:ci-only@127.0.0.1:5432/three_stone_game
       MAX_REQUEST_BODY_BYTES: 32768
       TEST_DATABASE_URL: postgres://three_stone_game:ci-only@127.0.0.1:5432/three_stone_game
-      VITE_API_URL: http://127.0.0.1:3001
+      VITE_API_URL: http://localhost:3001
       WEB_ORIGIN: http://localhost:5173
 
     services:
