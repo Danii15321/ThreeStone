@@ -5,6 +5,7 @@ import aiVictoryHandsUrl from '../assets/game-hands-ai-victory.jpg';
 import closedHandsUrl from '../assets/game-hands-closed.webp';
 import humanVictoryHandsUrl from '../assets/game-hands-human-victory.jpg';
 import openHandsUrl from '../assets/game-hands-open.webp';
+import { describeBoard } from './board-accessibility.js';
 import { createBoardImageMotion } from './board-image-motion.js';
 import type { BoardModel } from './board-model.js';
 import styles from './PhaserBoard.module.css';
@@ -12,6 +13,8 @@ import styles from './PhaserBoard.module.css';
 interface PhaserBoardProps {
   readonly highContrast: boolean;
   readonly model: BoardModel;
+  readonly opponentName?: string;
+  readonly playerName?: string;
   readonly reducedMotion: boolean;
 }
 
@@ -22,7 +25,13 @@ const OPEN_HANDS_KEY = 'three-stone-open-hands';
 const AI_VICTORY_HANDS_KEY = 'three-stone-ai-victory-hands';
 const HUMAN_VICTORY_HANDS_KEY = 'three-stone-human-victory-hands';
 
-export function PhaserBoard({ highContrast, model, reducedMotion }: PhaserBoardProps) {
+export function PhaserBoard({
+  highContrast,
+  model,
+  opponentName = "l'ordinateur",
+  playerName = 'vous',
+  reducedMotion,
+}: PhaserBoardProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const aiReserve = model.ai.reserve;
   const aiRevealedCount = model.ai.revealedCount;
@@ -34,17 +43,19 @@ export function PhaserBoard({ highContrast, model, reducedMotion }: PhaserBoardP
   useEffect(() => {
     let game: PhaserTypes.Game | undefined;
     let cancelled = false;
+    const host = hostRef.current;
 
     void import('phaser').then((module) => {
-      if (cancelled || !hostRef.current) {
+      if (cancelled || host === null) {
         return;
       }
 
       const Phaser = module.default;
+      host.replaceChildren();
       game = new Phaser.Game({
         backgroundColor: '#1c1411',
         height: BOARD_HEIGHT,
-        parent: hostRef.current,
+        parent: host,
         scene: {
           active: true,
           key: 'table',
@@ -83,6 +94,7 @@ export function PhaserBoard({ highContrast, model, reducedMotion }: PhaserBoardP
     return () => {
       cancelled = true;
       game?.destroy(true);
+      host?.replaceChildren();
     };
   }, [
     highContrast,
@@ -95,13 +107,11 @@ export function PhaserBoard({ highContrast, model, reducedMotion }: PhaserBoardP
     reducedMotion,
   ]);
 
-  const poseDescription = describePose(model);
-
   return (
     <div
       className={styles.frame}
       role="img"
-      aria-label={`Plateau de jeu. ${poseDescription} Vous avez ${model.human.reserve} cailloux, l'ordinateur en a ${model.ai.reserve}.`}
+      aria-label={describeBoard(model, playerName, opponentName)}
     >
       <div className={styles.canvasHost} ref={hostRef} aria-hidden="true" />
     </div>
@@ -268,21 +278,6 @@ function drawVictoryPose(
   drawVignette(scene, highContrast);
 }
 
-function describePose(model: BoardModel): string {
-  if (model.pose === 'closed') {
-    return 'Les deux mains sont fermées.';
-  }
-  if (model.pose === 'human-victory') {
-    return 'Le joueur célèbre sa victoire avec un pouce levé.';
-  }
-  if (model.pose === 'ai-victory') {
-    return "L'ordinateur célèbre sa victoire avec un pouce levé.";
-  }
-  return `Les mains sont ouvertes : ${model.ai.revealedCount} caillou${plural(
-    model.ai.revealedCount,
-  )} pour l'ordinateur et ${model.human.revealedCount} pour vous.`;
-}
-
 function drawHandStones(
   scene: PhaserTypes.Scene,
   seat: 'ai' | 'human',
@@ -418,8 +413,4 @@ function textStyle(
     fontSize: `${fontSize}px`,
     fontStyle,
   };
-}
-
-function plural(count: number): string {
-  return count > 1 ? 'x' : '';
 }

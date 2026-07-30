@@ -5,6 +5,7 @@ import logoUrl from '../assets/threestone-logo.jpg';
 import { ApiClient, type SessionSnapshot } from '../adapters/http/api-client.js';
 import { AccountPanel } from '../features/account/AccountPanel.js';
 import { buildSoloResultPayload } from '../features/account/account-sync.js';
+import { MultiplayerLobby } from '../features/multiplayer/MultiplayerLobby.js';
 import { GameScreen } from '../features/solo-game/GameScreen.js';
 import type { SoloSnapshot } from '../features/solo-game/solo-game-controller.js';
 import {
@@ -18,7 +19,7 @@ import { GameSettingsPanel } from './GameSettingsPanel.js';
 import { HomeScreen } from './HomeScreen.js';
 import styles from './App.module.css';
 
-type View = 'account' | 'game' | 'home' | 'rules' | 'settings';
+type View = 'account' | 'game' | 'home' | 'multiplayer' | 'rules' | 'settings';
 
 export function App() {
   const apiClient = useMemo(() => new ApiClient(import.meta.env.VITE_API_URL ?? ''), []);
@@ -131,6 +132,18 @@ export function App() {
     );
   }
 
+  if (view === 'multiplayer') {
+    return (
+      <MultiplayerLobby
+        client={apiClient}
+        onExit={() => setView('home')}
+        onLogin={() => setView('account')}
+        preferences={preferences}
+        session={session}
+      />
+    );
+  }
+
   return (
     <main className={styles.page} data-high-contrast={preferences.highContrast}>
       <header className={styles.header}>
@@ -151,6 +164,7 @@ export function App() {
       {view === 'home' ? (
         <HomeScreen
           onRules={() => setView('rules')}
+          onStartMultiplayer={() => setView('multiplayer')}
           onStartSolo={startSolo}
           preferences={preferences}
         />

@@ -27,9 +27,14 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'pnpm --filter @three-stone/api dev',
+      command: 'AUTH_RATE_LIMIT_MAX=100 pnpm --filter @three-stone/api dev',
       reuseExistingServer: !process.env.CI,
       url: 'http://127.0.0.1:3001/api/health/ready',
+    },
+    {
+      command: 'pnpm --filter @three-stone/game-server dev',
+      reuseExistingServer: !process.env.CI,
+      url: 'http://127.0.0.1:2567/health/ready',
     },
     {
       command: 'pnpm dev --host 127.0.0.1',

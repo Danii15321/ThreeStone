@@ -1,6 +1,8 @@
 import {
   accountExportSchema,
   apiErrorResponseSchema,
+  createMultiplayerRoomResponseSchema,
+  joinMultiplayerRoomResponseSchema,
   playerPreferencesSchema,
   playerProfileSchema,
   soloGameResultSchema,
@@ -9,6 +11,8 @@ import {
   type ApiErrorCode,
   type AccountExport,
   type CreateSoloResultRequest,
+  type CreateMultiplayerRoomResponse,
+  type JoinMultiplayerRoomResponse,
   type PlayerPreferences,
   type PlayerProfile,
   type SoloGameResult,
@@ -211,6 +215,27 @@ export class ApiClient {
 
   async getSoloStats(): Promise<SoloStats> {
     return this.validatedRequest('/api/stats/solo', soloStatsSchema);
+  }
+
+  async createMultiplayerRoom(): Promise<CreateMultiplayerRoomResponse> {
+    return this.validatedRequest('/api/multiplayer/rooms', createMultiplayerRoomResponseSchema, {
+      method: 'POST',
+    });
+  }
+
+  async joinMultiplayerRoom(code: string): Promise<JoinMultiplayerRoomResponse> {
+    return this.validatedRequest('/api/multiplayer/join', joinMultiplayerRoomResponseSchema, {
+      body: { code },
+      method: 'POST',
+    });
+  }
+
+  async refreshMultiplayerTicket(roomId: string): Promise<JoinMultiplayerRoomResponse> {
+    return this.validatedRequest(
+      `/api/multiplayer/rooms/${encodeURIComponent(roomId)}/ticket`,
+      joinMultiplayerRoomResponseSchema,
+      { method: 'POST' },
+    );
   }
 
   private async validatedRequest<T>(

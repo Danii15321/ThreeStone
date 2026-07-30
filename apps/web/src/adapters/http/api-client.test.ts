@@ -230,4 +230,47 @@ describe('API client boundary', () => {
       }),
     );
   });
+
+  it('creates, joins and refreshes a multiplayer admission through body-only tickets', async () => {
+    const admission = {
+      gameServerUrl: 'ws://127.0.0.1:2567',
+      playerId: 'player-one',
+      roomId: '019b15db-9829-7b46-a6a5-6cfcb1ca84c5',
+      ticket: 'signed-admission-ticket-that-is-long-enough-for-the-contract',
+      ticketExpiresAt: '2026-07-30T18:00:45.000Z',
+    };
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+      const url = String(input);
+      return new Response(
+        JSON.stringify(
+          url.endsWith('/api/multiplayer/rooms')
+            ? { ...admission, inviteCode: 'ABCD23' }
+            : admission,
+        ),
+        { status: url.endsWith('/api/multiplayer/rooms') ? 201 : 200 },
+      );
+    });
+    const client = new ApiClient('http://localhost:3001', fetcher);
+
+    await expect(client.createMultiplayerRoom()).resolves.toMatchObject({
+      inviteCode: 'ABCD23',
+    });
+    await expect(client.joinMultiplayerRoom('abcd23')).resolves.toMatchObject({
+      roomId: admission.roomId,
+    });
+    await expect(client.refreshMultiplayerTicket(admission.roomId)).resolves.toMatchObject({
+      ticket: admission.ticket,
+    });
+
+    expect(fetcher.mock.calls.map(([url]) => String(url))).not.toContain(
+      expect.stringContaining(admission.ticket),
+    );
+    expect(fetcher).toHaveBeenCalledWith(
+      'http://localhost:3001/api/multiplayer/join',
+      expect.objectContaining({
+        body: JSON.stringify({ code: 'abcd23' }),
+        method: 'POST',
+      }),
+    );
+  });
 });

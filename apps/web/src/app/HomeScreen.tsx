@@ -4,15 +4,21 @@ import handsUrl from '../assets/threestone-home-hands.webp';
 import type { Difficulty, UserPreferences } from '../features/settings/preferences.js';
 import styles from './App.module.css';
 
-type LaunchStep = 'closed' | 'difficulty' | 'loading' | 'mode' | 'multiplayer';
+type LaunchStep = 'closed' | 'difficulty' | 'loading' | 'mode';
 
 interface HomeScreenProps {
   readonly onRules: () => void;
+  readonly onStartMultiplayer: () => void;
   readonly onStartSolo: (difficulty: Difficulty) => void;
   readonly preferences: UserPreferences;
 }
 
-export function HomeScreen({ onRules, onStartSolo, preferences }: HomeScreenProps) {
+export function HomeScreen({
+  onRules,
+  onStartMultiplayer,
+  onStartSolo,
+  preferences,
+}: HomeScreenProps) {
   const [launchStep, setLaunchStep] = useState<LaunchStep>('closed');
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>(preferences.difficulty);
 
@@ -81,7 +87,7 @@ export function HomeScreen({ onRules, onStartSolo, preferences }: HomeScreenProp
           onClose={() => setLaunchStep('closed')}
           onDifficulty={() => setLaunchStep('difficulty')}
           onMode={() => setLaunchStep('mode')}
-          onMultiplayer={() => setLaunchStep('multiplayer')}
+          onMultiplayer={onStartMultiplayer}
           onSelectDifficulty={selectDifficulty}
         />
       ) : null}
@@ -111,9 +117,7 @@ function LaunchDialog({
       ? 'Choisissez votre mode'
       : launchStep === 'difficulty'
         ? 'Choisissez la difficulté'
-        : launchStep === 'multiplayer'
-          ? 'Multijoueur en préparation'
-          : 'Préparation de la table';
+        : 'Préparation de la table';
 
   return (
     <div className={styles.dialogBackdrop}>
@@ -151,7 +155,7 @@ function LaunchDialog({
                 ◈
               </span>
               <strong>Multijoueur</strong>
-              <small>Défiez bientôt un autre joueur en ligne.</small>
+              <small>Invitez un autre joueur dans un salon privé.</small>
             </button>
           </div>
         ) : null}
@@ -167,19 +171,6 @@ function LaunchDialog({
               ← Retour aux modes
             </button>
           </>
-        ) : null}
-
-        {launchStep === 'multiplayer' ? (
-          <div className={styles.comingSoon}>
-            <span aria-hidden="true">⚔</span>
-            <p>
-              Les tables en ligne, les invitations privées et la reconnexion arriveront avec la
-              version 2.
-            </p>
-            <button className={styles.secondaryButton} type="button" autoFocus onClick={onMode}>
-              Retour aux modes
-            </button>
-          </div>
         ) : null}
 
         {launchStep === 'loading' ? (

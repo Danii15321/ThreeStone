@@ -1,4 +1,6 @@
 import { randomInt, randomUUID } from 'node:crypto';
+import { loadEnvFile } from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 import { DrizzleMultiplayerResultRepository, createDatabase } from '@three-stone/database';
 import { HmacAdmissionTicketVerifier } from '@three-stone/protocol/node';
@@ -6,6 +8,19 @@ import { HmacAdmissionTicketVerifier } from '@three-stone/protocol/node';
 import { AdmissionRegistry, type MultiplayerSeat } from './admission-registry.js';
 import { createGameServer } from './colyseus-server.js';
 import { readGameServerEnvironment } from './config/environment.js';
+
+try {
+  loadEnvFile(fileURLToPath(new URL('../../../.env', import.meta.url)));
+} catch (error: unknown) {
+  if (
+    typeof error !== 'object' ||
+    error === null ||
+    !('code' in error) ||
+    (error as { readonly code?: unknown }).code !== 'ENOENT'
+  ) {
+    throw error;
+  }
+}
 
 const environment = readGameServerEnvironment();
 const database = createDatabase(environment.DATABASE_URL, {

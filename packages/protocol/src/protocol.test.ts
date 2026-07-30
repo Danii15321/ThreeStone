@@ -32,6 +32,7 @@ const context: SnapshotContext = {
       username: 'Bjorn',
     },
   },
+  ready: { 'player-one': true, 'player-two': false },
 };
 
 function choose(state: GameState, playerId: 'player-one' | 'player-two', count: number): GameState {

@@ -53,6 +53,7 @@ export const roomSnapshotSchema = z.strictObject({
   roundNumber: z.number().int().positive(),
   initiative: playerIdSchema,
   players: playerMap(publicPlayerSchema),
+  ready: playerMap(z.boolean()),
   reserves: playerMap(reserveSchema),
   predictions: z.strictObject({
     'player-one': predictionSchema.optional(),
@@ -98,6 +99,7 @@ export interface SnapshotContext {
   readonly actionDeadline: number | null;
   readonly sessionScore: Readonly<Record<PlayerId, number>>;
   readonly players: Readonly<Record<PlayerId, PublicPlayer>>;
+  readonly ready: Readonly<Record<PlayerId, boolean>>;
 }
 
 export function createPublicSnapshot(state: GameState, context: SnapshotContext): RoomSnapshot {
@@ -112,6 +114,7 @@ export function createPublicSnapshot(state: GameState, context: SnapshotContext)
     roundNumber: state.roundNumber,
     initiative: state.initiative,
     players: copyPlayerMap(context.players),
+    ready: { ...context.ready },
     reserves: { ...state.reserves },
     predictions: { ...state.round.predictions },
     revealedRounds: state.revealedRounds.map(copyRound),

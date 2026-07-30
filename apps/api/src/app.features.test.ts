@@ -105,6 +105,10 @@ describe('v1 API boundaries', () => {
     expect(stored.status).toBe(200);
     expect(stored.headers.get('content-type')).toBe('image/png');
     expect(new Uint8Array(await stored.arrayBuffer())).toEqual(pngSignature);
+
+    const participantAvatar = await app.request('/api/players/avatar-owner/avatar');
+    expect(participantAvatar.status).toBe(200);
+    expect(new Uint8Array(await participantAvatar.arrayBuffer())).toEqual(pngSignature);
   });
 
   it('rejects an avatar whose bytes do not match its declared format', async () => {

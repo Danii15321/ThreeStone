@@ -102,8 +102,9 @@ test('creates a username account, finishes a solo game and persists its result',
   await page.getByRole('button', { name: 'Commencez une partie' }).click();
   await expect(page.getByRole('dialog', { name: 'Choisissez votre mode' })).toBeVisible();
   await page.getByRole('button', { name: /Multijoueur/ }).click();
-  await expect(page.getByRole('heading', { name: 'Multijoueur en préparation' })).toBeVisible();
-  await page.getByRole('button', { name: 'Retour aux modes' }).click();
+  await expect(page.getByRole('heading', { name: 'Choisissez votre table' })).toBeVisible();
+  await page.getByRole('button', { name: 'Retour à l’accueil' }).click();
+  await page.getByRole('button', { name: 'Commencez une partie' }).click();
   await page.getByRole('button', { name: 'Mode solo' }).click();
   await expect(page.getByRole('heading', { name: 'Choisissez la difficulté' })).toBeVisible();
   await page.getByRole('button', { name: 'Moyen' }).click();

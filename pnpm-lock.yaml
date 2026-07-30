@@ -124,6 +124,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@colyseus/sdk':
+        specifier: 0.17.43
+        version: 0.17.43(@colyseus/core@0.17.45)(typescript@5.9.3)(zod@4.4.3)
       '@three-stone/api-contracts':
         specifier: workspace:*
         version: link:../../packages/api-contracts
@@ -133,6 +136,9 @@ importers:
       '@three-stone/game-core':
         specifier: workspace:*
         version: link:../../packages/game-core
+      '@three-stone/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
       phaser:
         specifier: ^4.2.1
         version: 4.2.1

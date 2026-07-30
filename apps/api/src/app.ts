@@ -145,6 +145,7 @@ export function createApp(dependencies?: ApiDependencies) {
     app.use('/api/profile/*', authenticate(dependencies.authGateway));
     app.use('/api/preferences', authenticate(dependencies.authGateway));
     app.use('/api/multiplayer/*', authenticate(dependencies.authGateway));
+    app.use('/api/players/*', authenticate(dependencies.authGateway));
     app.use('/api/results/*', authenticate(dependencies.authGateway));
     app.use('/api/stats/*', authenticate(dependencies.authGateway));
 
@@ -195,25 +196,20 @@ export function createApp(dependencies?: ApiDependencies) {
     });
 
     app.post('/api/multiplayer/rooms', async (context) => {
-      const admission = await dependencies.multiplayerAdmissionService.create(
-        context.get('account'),
-      );
+      const account = await multiplayerAccount(context, dependencies.profileService);
+      const admission = await dependencies.multiplayerAdmissionService.create(account);
       return context.json(createMultiplayerRoomResponseSchema.parse(admission), 201);
     });
     app.post('/api/multiplayer/join', async (context) => {
       const input = await parseJson(context, joinMultiplayerRoomRequestSchema);
-      const admission = await dependencies.multiplayerAdmissionService.join(
-        context.get('account'),
-        input.code,
-      );
+      const account = await multiplayerAccount(context, dependencies.profileService);
+      const admission = await dependencies.multiplayerAdmissionService.join(account, input.code);
       return context.json(joinMultiplayerRoomResponseSchema.parse(admission));
     });
     app.post('/api/multiplayer/rooms/:roomId/ticket', async (context) => {
       const roomId = z.uuid().parse(context.req.param('roomId'));
-      const admission = await dependencies.multiplayerAdmissionService.refresh(
-        context.get('account'),
-        roomId,
-      );
+      const account = await multiplayerAccount(context, dependencies.profileService);
+      const admission = await dependencies.multiplayerAdmissionService.refresh(account, roomId);
       return context.json(joinMultiplayerRoomResponseSchema.parse(admission));
     });
 
@@ -243,13 +239,14 @@ export function createApp(dependencies?: ApiDependencies) {
       if (avatar === null) {
         return errorResponse(context, 404, 'NOT_FOUND', 'The player has no avatar.');
       }
-      return new Response(avatar.bytes, {
-        headers: {
-          'cache-control': 'private, max-age=3600',
-          'content-type': avatar.mediaType,
-          'x-content-type-options': 'nosniff',
-        },
-      });
+      return avatarResponse(avatar);
+    });
+    app.get('/api/players/:userId/avatar', async (context) => {
+      const userId = z.string().min(1).max(128).parse(context.req.param('userId'));
+      const avatar = await dependencies.profileService.getAvatar(userId);
+      return avatar === null
+        ? errorResponse(context, 404, 'NOT_FOUND', 'The player has no avatar.')
+        : avatarResponse(avatar);
     });
     app.put('/api/profile/avatar', async (context) => {
       const expectedVersion = profileVersionQuerySchema.parse(context.req.query('expectedVersion'));
@@ -386,4 +383,30 @@ function authenticate(authGateway: AuthGateway) {
     context.set('userId', session.userId);
     await next();
   };
+}
+
+async function multiplayerAccount(
+  context: ApiContext,
+  profileService: ProfileService,
+): Promise<AccountMetadata> {
+  const account = context.get('account');
+  const profile = await profileService.getProfile(account.id);
+  if (profile?.hasAvatar !== true) {
+    return account;
+  }
+  const avatarPath = `/api/players/${encodeURIComponent(account.id)}/avatar`;
+  return {
+    ...account,
+    image: new URL(avatarPath, context.req.url).toString(),
+  };
+}
+
+function avatarResponse(avatar: { readonly bytes: Uint8Array; readonly mediaType: string }) {
+  return new Response(avatar.bytes, {
+    headers: {
+      'cache-control': 'private, max-age=3600',
+      'content-type': avatar.mediaType,
+      'x-content-type-options': 'nosniff',
+    },
+  });
 }

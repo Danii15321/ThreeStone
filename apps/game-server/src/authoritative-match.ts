@@ -326,6 +326,10 @@ export class AuthoritativeMatch {
     const snapshot = createPublicSnapshot(this.currentState, {
       actionDeadline: null,
       players,
+      ready: {
+        'player-one': this.ready.get('player-one') === true,
+        'player-two': this.ready.get('player-two') === true,
+      },
       roomId: this.options.roomId,
       sequence: this.currentSequence,
       serverNow: this.dependencies.clock.now(),

@@ -1,0 +1,248 @@
+.shell {
+  width: min(100%, 72rem);
+  min-height: 100dvh;
+  padding: clamp(1rem, 3vw, 2rem);
+  margin: 0 auto;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgb(207 153 91 / 28%);
+}
+
+.topbar h1,
+.panel h2 {
+  margin: 0;
+  color: var(--color-heading);
+  font-family: var(--font-display);
+}
+
+.topbar h1 {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+}
+
+.eyebrow {
+  margin: 0 0 0.3rem;
+  color: var(--color-accent-light);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.panel {
+  position: relative;
+  width: min(100%, 48rem);
+  padding: clamp(1.5rem, 5vw, 3.5rem);
+  margin: clamp(2rem, 8vh, 5rem) auto;
+  border: 1px solid rgb(221 175 112 / 48%);
+  border-radius: 0.9rem;
+  color: var(--color-parchment-light);
+  background:
+    radial-gradient(circle at 80% 10%, rgb(211 139 67 / 18%), transparent 28%),
+    linear-gradient(145deg, #493127, #211714);
+  box-shadow: var(--shadow-inset), var(--shadow-panel);
+  text-align: center;
+}
+
+.panel::before {
+  position: absolute;
+  inset: 0.55rem;
+  border: 1px solid rgb(222 174 111 / 17%);
+  border-radius: 0.55rem;
+  content: '';
+  pointer-events: none;
+}
+
+.panel > * {
+  position: relative;
+}
+
+.panel h2 {
+  font-size: clamp(2rem, 6vw, 4rem);
+  line-height: 1;
+}
+
+.panelText {
+  max-width: 36rem;
+  margin: 1rem auto 1.6rem;
+  color: #d4c1a7;
+  line-height: 1.6;
+}
+
+.modeGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.modeCard {
+  display: grid;
+  min-height: 11rem;
+  align-content: center;
+  justify-items: center;
+  gap: 0.65rem;
+  padding: 1.3rem;
+  border: 1px solid rgb(213 166 107 / 38%);
+  border-radius: 0.6rem;
+  color: var(--color-parchment-light);
+  background: linear-gradient(145deg, rgb(121 78 52 / 42%), transparent 55%), #2b1c17;
+  cursor: pointer;
+  font: inherit;
+}
+
+.modeCard:hover {
+  border-color: var(--color-accent-light);
+  filter: brightness(1.08);
+  transform: translateY(-2px);
+}
+
+.modeCard strong {
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+}
+
+.modeCard span {
+  color: var(--color-accent-light);
+  font-size: 2rem;
+}
+
+.modeCard small {
+  color: #cbb79e;
+  line-height: 1.45;
+}
+
+.joinForm {
+  display: grid;
+  gap: 1rem;
+  max-width: 28rem;
+  margin: 2rem auto 0;
+}
+
+.joinForm label {
+  display: grid;
+  gap: 0.5rem;
+  color: #ddc9ae;
+  font-weight: 800;
+  text-align: left;
+}
+
+.joinForm input {
+  min-height: 4rem;
+  padding: 0 1rem;
+  border: 1px solid #b98a50;
+  border-radius: 0.45rem;
+  color: #2f1d15;
+  background: #f0e4cf;
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 900;
+  letter-spacing: 0.22em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.7rem;
+  margin-top: 1.4rem;
+}
+
+.primaryButton,
+.secondaryButton,
+.textButton {
+  min-height: 3rem;
+  padding: 0 1.2rem;
+  border-radius: 0.45rem;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 850;
+}
+
+.primaryButton {
+  border: 1px solid #efc276;
+  color: #2b170d;
+  background: linear-gradient(180deg, #e3ad61, #ae692f);
+}
+
+.secondaryButton {
+  border: 1px solid rgb(226 190 143 / 58%);
+  color: var(--color-parchment-light);
+  background: linear-gradient(180deg, #4b3329, #2d211c);
+}
+
+.textButton {
+  border: 0;
+  color: #d6bd9a;
+  background: transparent;
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  cursor: wait;
+  filter: grayscale(0.5);
+  opacity: 0.65;
+}
+
+.error {
+  color: #ffb19a;
+  font-weight: 800;
+}
+
+.waiting {
+  display: grid;
+  justify-items: center;
+  gap: 0.8rem;
+  padding: 1rem 0;
+}
+
+.inviteCode {
+  padding: 0.75rem 1.2rem;
+  border: 1px solid #e2b76f;
+  border-radius: 0.5rem;
+  color: #2b170d;
+  background: #ead9bd;
+  box-shadow: var(--shadow-inset);
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 8vw, 4rem);
+  font-weight: 900;
+  letter-spacing: 0.18em;
+}
+
+.pulse {
+  width: 0.85rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #e2ae5e;
+  box-shadow: 0 0 0 0 rgb(226 174 94 / 55%);
+  animation: waiting-pulse 1.4s ease-out infinite;
+}
+
+@keyframes waiting-pulse {
+  70% {
+    box-shadow: 0 0 0 0.8rem rgb(226 174 94 / 0%);
+  }
+}
+
+@media (max-width: 40rem) {
+  .modeGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    align-items: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    animation: none;
+  }
+}

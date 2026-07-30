@@ -60,6 +60,33 @@ describe('multiplayer admission routes', () => {
     });
   });
 
+  it('attaches an authenticated profile avatar URL to the game-server identity', async () => {
+    const create = vi.fn(async () => ({ ...ADMISSION, inviteCode: 'ABCD23' }));
+    const dependencies = multiplayerDependencies({
+      admission: { create, join: vi.fn(), refresh: vi.fn() },
+      userId: 'avatar-player',
+    });
+    const app = createApp(dependencies);
+    await app.request('/api/profile', {
+      body: JSON.stringify({ bio: '', expectedVersion: 0, nickname: 'Avatar Player' }),
+      headers: { 'content-type': 'application/json' },
+      method: 'PATCH',
+    });
+    await app.request('/api/profile/avatar?expectedVersion=1', {
+      body: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+      headers: { 'content-type': 'image/png' },
+      method: 'PUT',
+    });
+
+    await app.request('/api/multiplayer/rooms', { method: 'POST' });
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        image: 'http://localhost/api/players/avatar-player/avatar',
+      }),
+    );
+  });
+
   it('normalizes a valid invite code before joining', async () => {
     const join = vi.fn(async () => ADMISSION);
     const app = createApp(

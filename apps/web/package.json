@@ -13,9 +13,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@colyseus/sdk": "0.17.43",
     "@three-stone/api-contracts": "workspace:*",
     "@three-stone/game-ai": "workspace:*",
     "@three-stone/game-core": "workspace:*",
+    "@three-stone/protocol": "workspace:*",
     "phaser": "^4.2.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"

@@ -111,7 +111,14 @@ function createThreeStoneRoomClass(dependencies: MatchDependencies) {
       if (identity === null || !this.authoritativeMatch.canAdmit(identity)) {
         throw roomUnavailable();
       }
-      return admissionIdentitySchema.parse(identity);
+      return admissionIdentitySchema.parse({
+        avatarUrl: identity.avatarUrl,
+        connectionGeneration: identity.connectionGeneration,
+        playerId: identity.playerId,
+        roomId: identity.roomId,
+        userId: identity.userId,
+        username: identity.username,
+      });
     }
 
     override onJoin(client: Client, _options: unknown, rawIdentity: unknown): void {
