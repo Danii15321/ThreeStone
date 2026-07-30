@@ -10,6 +10,9 @@ la version demandée.
 Lis toujours `README.md`, `docs/ARCHITECTURE.md` et
 `docs/pipeline-complete.md` avant d'agir. Ils contiennent la vision produit, les
 règles, l'architecture cible, la roadmap et les portes qualité.
+Pour une tâche v2, lis également `docs/SPEC_V2.md` et
+`docs/PIPELINE_V2.md` ; ces deux fichiers prévalent sur les anciennes sections
+multijoueurs de la pipeline générale.
 
 
 ## Ordre des priorités
@@ -209,6 +212,8 @@ packages/
 docs/
   ARCHITECTURE.md
   pipeline-complete.md
+  SPEC_V2.md
+  PIPELINE_V2.md
   decisions/
   rules/
 ```

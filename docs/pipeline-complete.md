@@ -892,6 +892,10 @@ La v2 n'est pas bloquée par ce lot facultatif.
 
 # Fondations multijoueur v2
 
+> Cette section conserve le cadrage historique de la roadmap. L'exécution de la
+> v2 est désormais définie par [`SPEC_V2.md`](./SPEC_V2.md) et
+> [`PIPELINE_V2.md`](./PIPELINE_V2.md), qui prévalent en cas de divergence.
+
 ## M2-01 — ADR protocole et compatibilité
 
 - version du protocole ;

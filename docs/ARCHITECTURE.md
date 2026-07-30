@@ -631,6 +631,11 @@ doivent être reproductibles et comparables entre versions.
 
 ## Serveur multijoueur v2
 
+Le contrat détaillé et son ordre d'implémentation sont définis dans
+[`SPEC_V2.md`](./SPEC_V2.md) et [`PIPELINE_V2.md`](./PIPELINE_V2.md). Ces
+documents prévalent sur les formulations v2 historiques de cette architecture
+tant que leur alignement est en cours.
+
 ### Salle
 
 Une salle Colyseus possède :

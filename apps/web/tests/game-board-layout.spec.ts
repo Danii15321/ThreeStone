@@ -79,17 +79,18 @@ for (const viewport of viewports) {
     await expect(prediction).toBeVisible();
     await page.getByRole('button', { name: /^Annoncer \d$/ }).click();
 
+    let sawOpenHands = false;
     for (let sample = 0; sample < 24; sample += 1) {
       const currentBoard = await readGeometry(board);
       const currentCanvas = await readGeometry(canvas);
       expectStableGeometry(currentBoard, initialBoard);
       expectStableGeometry(currentCanvas, initialCanvas);
       expectCanvasFillsBoard(currentCanvas, currentBoard);
+      sawOpenHands ||=
+        (await board.getAttribute('aria-label'))?.includes('Les mains sont ouvertes') ?? false;
       await page.waitForTimeout(150);
     }
 
-    await expect(board).toHaveAttribute('aria-label', /Les mains sont ouvertes/, {
-      timeout: 5_000,
-    });
+    expect(sawOpenHands).toBe(true);
   });
 }

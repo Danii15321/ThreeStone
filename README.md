@@ -13,7 +13,7 @@ absente du code.
 
 ## Démarrage local
 
-Prérequis : Node.js `20.20.2` (voir `.nvmrc`), Corepack et Docker pour
+Prérequis : Node.js `24.18.0` (voir `.nvmrc`), Corepack et Docker pour
 PostgreSQL.
 
 ```bash
@@ -205,9 +205,10 @@ Audio, mouvements et contraste sont regroupés dans « Paramètres du jeu ».
   décide de l'état officiel.
 - Protection stricte des choix cachés jusqu'à la révélation.
 - Reconnexion, abandon, délai de tour et gestion des déconnexions.
-- Synchronisation et journal des événements d'une partie.
+- Synchronisation et transcript validé des manches d'une partie.
 - Enregistrement idempotent du résultat multijoueur dans le profil des deux
   participants.
+- Score de session, revanche et réactions prédéfinies sans chat libre.
 
 Le matchmaking public, le classement compétitif, les amis et les achats ne font
 pas partie du premier incrément multijoueur. Ils nécessiteront une décision
@@ -468,6 +469,10 @@ utilisent `DATABASE_URL` avec `DATABASE_MAX_CONNECTIONS=1`.
 - [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) : architecture détaillée du
   client, de l'API, des données et du serveur multijoueur.
 - [`docs/pipeline-complete.md`](./docs/pipeline-complete.md) : séquence de
-  développement et portes qualité jusqu'à la v2 finale.
+  développement historique de la phase 0 à la v1.
+- [`docs/SPEC_V2.md`](./docs/SPEC_V2.md) : contrat fonctionnel et technique du
+  multijoueur privé.
+- [`docs/PIPELINE_V2.md`](./docs/PIPELINE_V2.md) : séquence TDD et portes
+  proportionnées de la v2.
 - Les futures décisions structurantes devront être conservées sous forme d'ADR
   dans `docs/decisions/`.

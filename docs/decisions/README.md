@@ -30,7 +30,12 @@ la date.
 10. [`ADR-0014`](./ADR-0014-deploiement-vercel-v1.md) — déploiement Vercel,
     fonction Hono et PostgreSQL Neon pour la v1.
 
-Les numéros `0006` à `0009` restent réservés aux décisions v2 déjà annoncées
+## ADR v2 acceptés
+
+1. [`ADR-0006`](./ADR-0006-hebergement-game-server-v2.md) — serveur Colyseus
+   mono-instance sur un Web Service Render européen.
+
+Les numéros `0007` à `0009` restent réservés aux décisions v2 déjà annoncées
 dans l’architecture. L’ADR-0012 est la décision courante pour
 l’authentification ; les ADR-0002 et ADR-0005 conservent l’historique remplacé.
 L’ADR-0014 précise le fournisseur et remplace les détails conteneurisés de
