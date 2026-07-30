@@ -1,0 +1,1295 @@
+{
+  "id": "56e27078-5978-4fc0-be42-05354d3c6e1b",
+  "prevId": "c68db741-a453-48d3-aa21-f9c0df372165",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.account": {
+      "name": "account",
+      "schema": "",
+      "columns": {
+        "access_token": {
+          "name": "access_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "access_token_expires_at": {
+          "name": "access_token_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "id_token": {
+          "name": "id_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "password": {
+          "name": "password",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provider_id": {
+          "name": "provider_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "refresh_token": {
+          "name": "refresh_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refresh_token_expires_at": {
+          "name": "refresh_token_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "account_user_id_idx": {
+          "name": "account_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "account_user_id_user_id_fk": {
+          "name": "account_user_id_user_id_fk",
+          "tableFrom": "account",
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.active_multiplayer_lease": {
+      "name": "active_multiplayer_lease",
+      "schema": "",
+      "columns": {
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "heartbeat_at": {
+          "name": "heartbeat_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lease_token_hash": {
+          "name": "lease_token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "room_id": {
+          "name": "room_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "server_instance_id": {
+          "name": "server_instance_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "active_multiplayer_lease_expiry_idx": {
+          "name": "active_multiplayer_lease_expiry_idx",
+          "columns": [
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "active_multiplayer_lease_room_idx": {
+          "name": "active_multiplayer_lease_room_idx",
+          "columns": [
+            {
+              "expression": "room_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "active_multiplayer_lease_user_id_user_id_fk": {
+          "name": "active_multiplayer_lease_user_id_user_id_fk",
+          "tableFrom": "active_multiplayer_lease",
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "active_multiplayer_lease_expiry_check": {
+          "name": "active_multiplayer_lease_expiry_check",
+          "value": "\"active_multiplayer_lease\".\"expires_at\" > \"active_multiplayer_lease\".\"heartbeat_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.game_participant": {
+      "name": "game_participant",
+      "schema": "",
+      "columns": {
+        "final_reserve": {
+          "name": "final_reserve",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "outcome": {
+          "name": "outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "seat": {
+          "name": "seat",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "game_participant_user_id_idx": {
+          "name": "game_participant_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "game_participant_game_id_game_record_game_id_fk": {
+          "name": "game_participant_game_id_game_record_game_id_fk",
+          "tableFrom": "game_participant",
+          "tableTo": "game_record",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["game_id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "game_participant_user_id_user_id_fk": {
+          "name": "game_participant_user_id_user_id_fk",
+          "tableFrom": "game_participant",
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "game_participant_game_id_seat_pk": {
+          "name": "game_participant_game_id_seat_pk",
+          "columns": ["game_id", "seat"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "game_participant_final_reserve_check": {
+          "name": "game_participant_final_reserve_check",
+          "value": "\"game_participant\".\"final_reserve\" between 0 and 3"
+        },
+        "game_participant_outcome_check": {
+          "name": "game_participant_outcome_check",
+          "value": "\"game_participant\".\"outcome\" in ('win', 'loss')"
+        },
+        "game_participant_seat_check": {
+          "name": "game_participant_seat_check",
+          "value": "\"game_participant\".\"seat\" in ('human', 'ai')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.game_record": {
+      "name": "game_record",
+      "schema": "",
+      "columns": {
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "difficulty": {
+          "name": "difficulty",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fingerprint": {
+          "name": "fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "mode": {
+          "name": "mode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'solo'"
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rounds_played": {
+          "name": "rounds_played",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rules_version": {
+          "name": "rules_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'solo-client'"
+        },
+        "terminal_payload": {
+          "name": "terminal_payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "winner": {
+          "name": "winner",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "game_record_user_completed_idx": {
+          "name": "game_record_user_completed_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "completed_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "game_record_user_winner_idx": {
+          "name": "game_record_user_winner_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "winner",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "game_record_user_id_user_id_fk": {
+          "name": "game_record_user_id_user_id_fk",
+          "tableFrom": "game_record",
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "game_record_difficulty_check": {
+          "name": "game_record_difficulty_check",
+          "value": "\"game_record\".\"difficulty\" in ('easy', 'standard', 'hard')"
+        },
+        "game_record_mode_check": {
+          "name": "game_record_mode_check",
+          "value": "\"game_record\".\"mode\" = 'solo'"
+        },
+        "game_record_rounds_check": {
+          "name": "game_record_rounds_check",
+          "value": "\"game_record\".\"rounds_played\" between 1 and 10000"
+        },
+        "game_record_source_check": {
+          "name": "game_record_source_check",
+          "value": "\"game_record\".\"source\" = 'solo-client'"
+        },
+        "game_record_winner_check": {
+          "name": "game_record_winner_check",
+          "value": "\"game_record\".\"winner\" in ('human', 'ai')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.multiplayer_game": {
+      "name": "multiplayer_game",
+      "schema": "",
+      "columns": {
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fingerprint": {
+          "name": "fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "initial_initiative": {
+          "name": "initial_initiative",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "protocol_version": {
+          "name": "protocol_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rounds_played": {
+          "name": "rounds_played",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rules_version": {
+          "name": "rules_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "seed": {
+          "name": "seed",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "terminal_reason": {
+          "name": "terminal_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "winner": {
+          "name": "winner",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "multiplayer_game_completed_idx": {
+          "name": "multiplayer_game_completed_idx",
+          "columns": [
+            {
+              "expression": "completed_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "multiplayer_game_initial_initiative_check": {
+          "name": "multiplayer_game_initial_initiative_check",
+          "value": "\"multiplayer_game\".\"initial_initiative\" in ('player-one', 'player-two')"
+        },
+        "multiplayer_game_protocol_version_check": {
+          "name": "multiplayer_game_protocol_version_check",
+          "value": "\"multiplayer_game\".\"protocol_version\" > 0"
+        },
+        "multiplayer_game_rounds_check": {
+          "name": "multiplayer_game_rounds_check",
+          "value": "\"multiplayer_game\".\"rounds_played\" between 0 and 10000"
+        },
+        "multiplayer_game_terminal_reason_check": {
+          "name": "multiplayer_game_terminal_reason_check",
+          "value": "\"multiplayer_game\".\"terminal_reason\" in ('reserve-empty', 'hidden-choice-timeout', 'prediction-timeout', 'abandon', 'disconnect')"
+        },
+        "multiplayer_game_winner_check": {
+          "name": "multiplayer_game_winner_check",
+          "value": "\"multiplayer_game\".\"winner\" in ('player-one', 'player-two')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.multiplayer_participant": {
+      "name": "multiplayer_participant",
+      "schema": "",
+      "columns": {
+        "final_reserve": {
+          "name": "final_reserve",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "outcome": {
+          "name": "outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "seat": {
+          "name": "seat",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "multiplayer_participant_user_completed_idx": {
+          "name": "multiplayer_participant_user_completed_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "game_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "multiplayer_participant_game_id_multiplayer_game_game_id_fk": {
+          "name": "multiplayer_participant_game_id_multiplayer_game_game_id_fk",
+          "tableFrom": "multiplayer_participant",
+          "tableTo": "multiplayer_game",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["game_id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "multiplayer_participant_user_id_user_id_fk": {
+          "name": "multiplayer_participant_user_id_user_id_fk",
+          "tableFrom": "multiplayer_participant",
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "multiplayer_participant_game_id_seat_pk": {
+          "name": "multiplayer_participant_game_id_seat_pk",
+          "columns": ["game_id", "seat"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "multiplayer_participant_final_reserve_check": {
+          "name": "multiplayer_participant_final_reserve_check",
+          "value": "\"multiplayer_participant\".\"final_reserve\" between 0 and 3"
+        },
+        "multiplayer_participant_outcome_check": {
+          "name": "multiplayer_participant_outcome_check",
+          "value": "\"multiplayer_participant\".\"outcome\" in ('win', 'loss')"
+        },
+        "multiplayer_participant_seat_check": {
+          "name": "multiplayer_participant_seat_check",
+          "value": "\"multiplayer_participant\".\"seat\" in ('player-one', 'player-two')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.multiplayer_round": {
+      "name": "multiplayer_round",
+      "schema": "",
+      "columns": {
+        "choice_one": {
+          "name": "choice_one",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "choice_two": {
+          "name": "choice_two",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "initiative": {
+          "name": "initiative",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prediction_one": {
+          "name": "prediction_one",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prediction_two": {
+          "name": "prediction_two",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reserve_one_after": {
+          "name": "reserve_one_after",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reserve_two_after": {
+          "name": "reserve_two_after",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "round_number": {
+          "name": "round_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "total": {
+          "name": "total",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "winner": {
+          "name": "winner",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "multiplayer_round_game_id_multiplayer_game_game_id_fk": {
+          "name": "multiplayer_round_game_id_multiplayer_game_game_id_fk",
+          "tableFrom": "multiplayer_round",
+          "tableTo": "multiplayer_game",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["game_id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "multiplayer_round_game_id_round_number_pk": {
+          "name": "multiplayer_round_game_id_round_number_pk",
+          "columns": ["game_id", "round_number"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "multiplayer_round_number_check": {
+          "name": "multiplayer_round_number_check",
+          "value": "\"multiplayer_round\".\"round_number\" > 0"
+        },
+        "multiplayer_round_choice_one_check": {
+          "name": "multiplayer_round_choice_one_check",
+          "value": "\"multiplayer_round\".\"choice_one\" between 0 and 3"
+        },
+        "multiplayer_round_choice_two_check": {
+          "name": "multiplayer_round_choice_two_check",
+          "value": "\"multiplayer_round\".\"choice_two\" between 0 and 3"
+        },
+        "multiplayer_round_prediction_one_check": {
+          "name": "multiplayer_round_prediction_one_check",
+          "value": "\"multiplayer_round\".\"prediction_one\" between 0 and 6"
+        },
+        "multiplayer_round_prediction_two_check": {
+          "name": "multiplayer_round_prediction_two_check",
+          "value": "\"multiplayer_round\".\"prediction_two\" between 0 and 6"
+        },
+        "multiplayer_round_predictions_distinct_check": {
+          "name": "multiplayer_round_predictions_distinct_check",
+          "value": "\"multiplayer_round\".\"prediction_one\" <> \"multiplayer_round\".\"prediction_two\""
+        },
+        "multiplayer_round_total_check": {
+          "name": "multiplayer_round_total_check",
+          "value": "\"multiplayer_round\".\"total\" = \"multiplayer_round\".\"choice_one\" + \"multiplayer_round\".\"choice_two\""
+        },
+        "multiplayer_round_initiative_check": {
+          "name": "multiplayer_round_initiative_check",
+          "value": "\"multiplayer_round\".\"initiative\" in ('player-one', 'player-two')"
+        },
+        "multiplayer_round_winner_check": {
+          "name": "multiplayer_round_winner_check",
+          "value": "\"multiplayer_round\".\"winner\" is null or \"multiplayer_round\".\"winner\" in ('player-one', 'player-two')"
+        },
+        "multiplayer_round_reserve_one_check": {
+          "name": "multiplayer_round_reserve_one_check",
+          "value": "\"multiplayer_round\".\"reserve_one_after\" between 0 and 3"
+        },
+        "multiplayer_round_reserve_two_check": {
+          "name": "multiplayer_round_reserve_two_check",
+          "value": "\"multiplayer_round\".\"reserve_two_after\" between 0 and 3"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.player_preferences": {
+      "name": "player_preferences",
+      "schema": "",
+      "columns": {
+        "difficulty": {
+          "name": "difficulty",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'standard'"
+        },
+        "high_contrast": {
+          "name": "high_contrast",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "motion": {
+          "name": "motion",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'system'"
+        },
+        "muted": {
+          "name": "muted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "sound_volume": {
+          "name": "sound_volume",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0.8
+        },
+        "tutorial_completed": {
+          "name": "tutorial_completed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "player_preferences_user_id_user_id_fk": {
+          "name": "player_preferences_user_id_user_id_fk",
+          "tableFrom": "player_preferences",
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "player_preferences_difficulty_check": {
+          "name": "player_preferences_difficulty_check",
+          "value": "\"player_preferences\".\"difficulty\" in ('easy', 'standard', 'hard')"
+        },
+        "player_preferences_motion_check": {
+          "name": "player_preferences_motion_check",
+          "value": "\"player_preferences\".\"motion\" in ('system', 'reduce', 'no-preference')"
+        },
+        "player_preferences_sound_volume_check": {
+          "name": "player_preferences_sound_volume_check",
+          "value": "\"player_preferences\".\"sound_volume\" between 0 and 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.player_profile": {
+      "name": "player_profile",
+      "schema": "",
+      "columns": {
+        "avatar_data": {
+          "name": "avatar_data",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "avatar_media_type": {
+          "name": "avatar_media_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bio": {
+          "name": "bio",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nickname": {
+          "name": "nickname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "player_profile_user_id_user_id_fk": {
+          "name": "player_profile_user_id_user_id_fk",
+          "tableFrom": "player_profile",
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "player_profile_bio_check": {
+          "name": "player_profile_bio_check",
+          "value": "char_length(\"player_profile\".\"bio\") <= 280"
+        },
+        "player_profile_avatar_pair_check": {
+          "name": "player_profile_avatar_pair_check",
+          "value": "(\"player_profile\".\"avatar_data\" is null) = (\"player_profile\".\"avatar_media_type\" is null)"
+        },
+        "player_profile_avatar_media_type_check": {
+          "name": "player_profile_avatar_media_type_check",
+          "value": "\"player_profile\".\"avatar_media_type\" is null or \"player_profile\".\"avatar_media_type\" in ('image/jpeg', 'image/png', 'image/webp')"
+        },
+        "player_profile_nickname_check": {
+          "name": "player_profile_nickname_check",
+          "value": "char_length(\"player_profile\".\"nickname\") > 0"
+        },
+        "player_profile_version_check": {
+          "name": "player_profile_version_check",
+          "value": "\"player_profile\".\"version\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.session": {
+      "name": "session",
+      "schema": "",
+      "columns": {
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "ip_address": {
+          "name": "ip_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_agent": {
+          "name": "user_agent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "session_token_unique": {
+          "name": "session_token_unique",
+          "columns": [
+            {
+              "expression": "token",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "session_user_id_idx": {
+          "name": "session_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "session_user_id_user_id_fk": {
+          "name": "session_user_id_user_id_fk",
+          "tableFrom": "session",
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.user": {
+      "name": "user",
+      "schema": "",
+      "columns": {
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email_verified": {
+          "name": "email_verified",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "image": {
+          "name": "image",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "username": {
+          "name": "username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "display_username": {
+          "name": "display_username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "user_email_unique": {
+          "name": "user_email_unique",
+          "columns": [
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "user_username_unique": {
+          "name": "user_username_unique",
+          "columns": [
+            {
+              "expression": "username",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.verification": {
+      "name": "verification",
+      "schema": "",
+      "columns": {
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "identifier": {
+          "name": "identifier",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "verification_identifier_idx": {
+          "name": "verification_identifier_idx",
+          "columns": [
+            {
+              "expression": "identifier",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

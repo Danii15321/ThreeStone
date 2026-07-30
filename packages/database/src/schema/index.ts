@@ -1,4 +1,5 @@
 import {
+  bigint,
   boolean,
   check,
   index,
@@ -196,5 +197,123 @@ export const gameParticipant = pgTable(
     check('game_participant_seat_check', sql`${table.seat} in ('human', 'ai')`),
     primaryKey({ columns: [table.gameId, table.seat] }),
     index('game_participant_user_id_idx').on(table.userId),
+  ],
+);
+
+export const multiplayerGame = pgTable(
+  'multiplayer_game',
+  {
+    completedAt: timestamp('completed_at', { mode: 'date', withTimezone: true }).notNull(),
+    fingerprint: text('fingerprint').notNull(),
+    gameId: uuid('game_id').primaryKey(),
+    initialInitiative: text('initial_initiative').notNull(),
+    protocolVersion: integer('protocol_version').notNull(),
+    recordedAt: timestamp('recorded_at', { mode: 'date', withTimezone: true }).notNull(),
+    roundsPlayed: integer('rounds_played').notNull(),
+    rulesVersion: text('rules_version').notNull(),
+    seed: bigint('seed', { mode: 'number' }).notNull(),
+    terminalReason: text('terminal_reason').notNull(),
+    winner: text('winner').notNull(),
+  },
+  (table) => [
+    check(
+      'multiplayer_game_initial_initiative_check',
+      sql`${table.initialInitiative} in ('player-one', 'player-two')`,
+    ),
+    check('multiplayer_game_protocol_version_check', sql`${table.protocolVersion} > 0`),
+    check('multiplayer_game_rounds_check', sql`${table.roundsPlayed} between 0 and 10000`),
+    check(
+      'multiplayer_game_terminal_reason_check',
+      sql`${table.terminalReason} in ('reserve-empty', 'hidden-choice-timeout', 'prediction-timeout', 'abandon', 'disconnect')`,
+    ),
+    check('multiplayer_game_winner_check', sql`${table.winner} in ('player-one', 'player-two')`),
+    index('multiplayer_game_completed_idx').on(table.completedAt),
+  ],
+);
+
+export const multiplayerParticipant = pgTable(
+  'multiplayer_participant',
+  {
+    finalReserve: integer('final_reserve').notNull(),
+    gameId: uuid('game_id')
+      .notNull()
+      .references(() => multiplayerGame.gameId, { onDelete: 'cascade' }),
+    outcome: text('outcome').notNull(),
+    seat: text('seat').notNull(),
+    userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
+  },
+  (table) => [
+    check(
+      'multiplayer_participant_final_reserve_check',
+      sql`${table.finalReserve} between 0 and 3`,
+    ),
+    check('multiplayer_participant_outcome_check', sql`${table.outcome} in ('win', 'loss')`),
+    check('multiplayer_participant_seat_check', sql`${table.seat} in ('player-one', 'player-two')`),
+    primaryKey({ columns: [table.gameId, table.seat] }),
+    index('multiplayer_participant_user_completed_idx').on(table.userId, table.gameId),
+  ],
+);
+
+export const multiplayerRound = pgTable(
+  'multiplayer_round',
+  {
+    choiceOne: integer('choice_one').notNull(),
+    choiceTwo: integer('choice_two').notNull(),
+    gameId: uuid('game_id')
+      .notNull()
+      .references(() => multiplayerGame.gameId, { onDelete: 'cascade' }),
+    initiative: text('initiative').notNull(),
+    predictionOne: integer('prediction_one').notNull(),
+    predictionTwo: integer('prediction_two').notNull(),
+    reserveOneAfter: integer('reserve_one_after').notNull(),
+    reserveTwoAfter: integer('reserve_two_after').notNull(),
+    roundNumber: integer('round_number').notNull(),
+    total: integer('total').notNull(),
+    winner: text('winner'),
+  },
+  (table) => [
+    check('multiplayer_round_number_check', sql`${table.roundNumber} > 0`),
+    check('multiplayer_round_choice_one_check', sql`${table.choiceOne} between 0 and 3`),
+    check('multiplayer_round_choice_two_check', sql`${table.choiceTwo} between 0 and 3`),
+    check('multiplayer_round_prediction_one_check', sql`${table.predictionOne} between 0 and 6`),
+    check('multiplayer_round_prediction_two_check', sql`${table.predictionTwo} between 0 and 6`),
+    check(
+      'multiplayer_round_predictions_distinct_check',
+      sql`${table.predictionOne} <> ${table.predictionTwo}`,
+    ),
+    check(
+      'multiplayer_round_total_check',
+      sql`${table.total} = ${table.choiceOne} + ${table.choiceTwo}`,
+    ),
+    check(
+      'multiplayer_round_initiative_check',
+      sql`${table.initiative} in ('player-one', 'player-two')`,
+    ),
+    check(
+      'multiplayer_round_winner_check',
+      sql`${table.winner} is null or ${table.winner} in ('player-one', 'player-two')`,
+    ),
+    check('multiplayer_round_reserve_one_check', sql`${table.reserveOneAfter} between 0 and 3`),
+    check('multiplayer_round_reserve_two_check', sql`${table.reserveTwoAfter} between 0 and 3`),
+    primaryKey({ columns: [table.gameId, table.roundNumber] }),
+  ],
+);
+
+export const activeMultiplayerLease = pgTable(
+  'active_multiplayer_lease',
+  {
+    expiresAt: timestamp('expires_at', { mode: 'date', withTimezone: true }).notNull(),
+    heartbeatAt: timestamp('heartbeat_at', { mode: 'date', withTimezone: true }).notNull(),
+    leaseTokenHash: text('lease_token_hash').notNull(),
+    roomId: uuid('room_id').notNull(),
+    serverInstanceId: text('server_instance_id').notNull(),
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => user.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    check('active_multiplayer_lease_expiry_check', sql`${table.expiresAt} > ${table.heartbeatAt}`),
+    index('active_multiplayer_lease_expiry_idx').on(table.expiresAt),
+    index('active_multiplayer_lease_room_idx').on(table.roomId),
   ],
 );
