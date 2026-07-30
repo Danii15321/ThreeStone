@@ -20,6 +20,7 @@
     "test": "pnpm --recursive --if-present run test",
     "test:e2e": "pnpm --filter @three-stone/web test:e2e",
     "test:integration": "pnpm --filter @three-stone/api test",
+    "test:load:multiplayer": "pnpm --filter @three-stone/game-server test:load",
     "test:multiplayer": "pnpm --filter @three-stone/game-server test",
     "typecheck": "pnpm --recursive --if-present run typecheck"
   },

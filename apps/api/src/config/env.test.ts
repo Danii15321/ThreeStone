@@ -52,4 +52,31 @@ describe('readEnvironment', () => {
     expect(environment.BETTER_AUTH_URL).toBe('https://three-stone-preview.example.vercel.app');
     expect(environment.WEB_ORIGIN).toBe('https://three-stone-preview.example.vercel.app');
   });
+
+  it('requires encrypted public and internal transports in production', () => {
+    expect(() =>
+      readEnvironment({
+        ...requiredEnvironment,
+        BETTER_AUTH_URL: 'http://three-stone.example',
+        GAME_SERVER_INTERNAL_URL: 'http://game-server.example',
+        GAME_SERVER_PUBLIC_URL: 'ws://game-server.example',
+        NODE_ENV: 'production',
+        WEB_ORIGIN: 'http://three-stone.example',
+      }),
+    ).toThrow();
+
+    expect(
+      readEnvironment({
+        ...requiredEnvironment,
+        BETTER_AUTH_URL: 'https://three-stone.example',
+        GAME_SERVER_INTERNAL_URL: 'https://game-server.example',
+        GAME_SERVER_PUBLIC_URL: 'wss://game-server.example',
+        NODE_ENV: 'production',
+        WEB_ORIGIN: 'https://three-stone.example',
+      }),
+    ).toMatchObject({
+      GAME_SERVER_INTERNAL_URL: 'https://game-server.example',
+      GAME_SERVER_PUBLIC_URL: 'wss://game-server.example',
+    });
+  });
 });

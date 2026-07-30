@@ -11,12 +11,12 @@ finale. Il constitue la référence technique avec :
 - [`pipeline-complete.md`](./pipeline-complete.md) pour l'ordre de réalisation
   et les portes qualité.
 
-La candidate v1 est **implémentée et vérifiée localement**. Le moteur, l'IA, le
-client solo, le cycle de compte par pseudonyme, l'API et la persistance
-PostgreSQL respectent les frontières décrites ici. Les composants v2
-(`game-server`, `protocol`, Colyseus) restent intentionnellement absents. Une
-décision structurante qui diverge de ce document doit être expliquée dans un ADR
-sous `docs/decisions/`, puis répercutée ici.
+La candidate v2 est **implémentée et vérifiée localement**. Le moteur, l’IA, le
+client solo, le compte par pseudonyme, l’API, PostgreSQL, le protocole privé et
+le serveur Colyseus respectent les frontières décrites ici. Aucun déploiement
+v2 n’est autorisé avant validation explicite. Une décision structurante qui
+diverge de ce document doit être expliquée dans un ADR sous `docs/decisions/`,
+puis répercutée ici.
 
 ## Périmètre architectural
 
@@ -55,7 +55,8 @@ rétention et de topologie ont été validés dans `docs/decisions/`. La v1 util
 des pseudonymes uniques sans distinction de casse et un cookie de session
 Better Auth. Elle ne collecte pas d’email et n’a pas de récupération de mot de
 passe oublié. Les décisions propres au protocole, aux tickets de salle et à
-l’exploitation Colyseus ne seront ouvertes qu’avec la v2.
+l’exploitation Colyseus sont verrouillées par `SPEC_V2.md` et l’ADR
+d’hébergement v2.
 
 ## Facteurs architecturaux
 
@@ -70,8 +71,8 @@ L'architecture est guidée par les propriétés suivantes :
 - **Testabilité** : le domaine ne dépend ni du navigateur, ni du réseau, ni de
   la base.
 - **Accessibilité** : les contrôles essentiels restent dans le DOM.
-- **Évolutivité maîtrisée** : le backend existe en v1 pour les comptes, mais le
-  temps réel et Redis n'arrivent qu'avec un besoin v2 démontré.
+- **Évolutivité maîtrisée** : une instance temps réel suffit à la v2 initiale ;
+  Redis reste exclu tant qu’une mesure ne justifie pas le multi-instance.
 - **Portabilité** : TypeScript est partagé, sans rendre le domaine dépendant des
   frameworks.
 - **Traçabilité** : règles, schémas, migrations et protocoles sont versionnés.
@@ -102,9 +103,9 @@ L’accueil s’appuie sur le visuel optimisé `threestone-home-hands.webp`. Son
 contenu fonctionnel reste limité à deux actions principales : lancer une partie
 ou consulter les règles. Le lanceur React orchestre les étapes `mode`,
 `difficulté` et `chargement` avant de monter l’écran solo. Le choix
-multijoueur affiche uniquement l’état v2 à venir : il ne crée ni salle, ni
-connexion, ni faux état réseau. Les préférences secondaires disposent d’un
-écran séparé accessible depuis l’en-tête.
+multijoueur ouvre la création ou la jonction d’un salon privé, puis connecte le
+navigateur au serveur autoritaire avec un ticket court. Les préférences
+secondaires disposent d’un écran séparé accessible depuis l’en-tête.
 
 ## Vue d'ensemble
 
@@ -133,7 +134,7 @@ la partie en ligne.
 
 | Conteneur | Version | Responsabilités | Ne doit pas faire |
 | --- | --- | --- | --- |
-| Application web | v1 | Écrans, accessibilité, saisies, plateau, audio, orchestration solo, clients HTTP et réseau | Décider des règles, faire confiance à une réponse non validée, stocker une session dans `localStorage` |
+| Application web | v1 + v2 | Écrans, accessibilité, saisies, plateau, orchestration solo, clients HTTP et WebSocket | Décider des règles, faire confiance à une réponse non validée, stocker une session dans `localStorage` |
 | API | v1 | Authentification, profil, préférences, résultats, autorisation, validation HTTP | Piloter les phases du jeu solo, contenir du SQL dans les handlers |
 | PostgreSQL | v1 | Identités, sessions, profils, préférences, résultats terminés, migrations | Servir d'état temps réel d'une salle |
 | Serveur Colyseus | v2 | Salons, sièges, moteur autoritaire, secrets, délais, reconnexion | Faire confiance à l'état d'un client, exposer un choix caché |
@@ -141,10 +142,8 @@ la partie en ligne.
 
 ## Organisation du dépôt
 
-Cette structure reflète les frontières logiques. L'implémentation v1 regroupe
-certains petits modules directement à leur racine pour éviter les abstractions
-vides. `apps/game-server` et `packages/protocol` sont réservés à la v2 et
-n'existent pas encore.
+Cette structure reflète les frontières logiques. Les petits modules restent
+proches de leur application pour éviter les abstractions vides.
 
 ```text
 apps/
@@ -167,6 +166,8 @@ apps/
       domain/                 Erreurs et ports de repositories
       http/                   Limitation de débit
       repositories/
+  game-server/
+    src/                      Salle, admission, délais, reprise et drainage
 packages/
   game-core/
     src/                      Modèle, transitions, vues et replay
@@ -179,6 +180,8 @@ packages/
       schema/
       client/
     migrations/
+  protocol/
+    src/                      Commandes, tickets et projections filtrées
   test-support/
     src/                      Générateurs et scénarios déterministes
 docs/
@@ -188,10 +191,8 @@ docs/
   rules/
 ```
 
-La v2 ajoutera `apps/game-server`, `packages/protocol` et les adaptateurs temps
-réel seulement après validation de leurs ADR. La structure exacte peut évoluer.
-Les frontières et le sens des dépendances sont obligatoires, contrairement au
-nom précis des dossiers.
+La structure exacte peut évoluer. Les frontières et le sens des dépendances
+sont obligatoires, contrairement au nom précis des dossiers.
 
 ## Règle de dépendance
 
@@ -361,13 +362,9 @@ Phaser gère :
 
 La v1 force le renderer Canvas : ce plateau 2D n'a pas besoin de WebGL et ce
 choix évite des différences de pilotes entre Chromium, Firefox et WebKit.
-L'audio synthétique est piloté séparément par l'adaptateur Web Audio et se
-limite actuellement aux boutons de sélection des cailloux, de validation du
-choix et de validation du pronostic. Aucune musique d'ambiance n'est incluse ;
-le futur morceau devra avoir une provenance et une licence documentées, puis
-respecter le volume et le mode muet existants. Un refus d'autoplay ne bloque
-jamais le jeu. Phaser reçoit uniquement un modèle de présentation dérivé
-d'événements confirmés et ne décide jamais du résultat d'une manche.
+Aucun son ni musique n’est livré dans la candidate v2. Phaser reçoit uniquement
+un modèle de présentation dérivé d’événements confirmés et ne décide jamais du
+résultat d’une manche.
 Les visuels de mains ne contiennent ni texte, ni profil, ni caillou précalculé :
 ces éléments varient avec l’état confirmé. La préférence de réduction des
 mouvements remplace la séquence par ses états finaux courts.
@@ -381,14 +378,13 @@ Le contrôleur :
 - fait jouer l'IA jusqu'à rendre la main à l'humain ou terminer la partie ;
 - refuse une action illégale via le moteur partagé.
 
-Le choix d'un adaptateur en ligne, la sérialisation de séquences longues et la
-réconciliation avec un snapshot serveur appartiennent à la v2.
+Le contrôleur multijoueur traduit les commandes, séquences et snapshots validés
+du package `protocol` sans réutiliser l’état local solo comme autorité.
 
 ### Stockage navigateur
 
 `localStorage` peut conserver uniquement :
 
-- volume et mode muet ;
 - réduction des mouvements ;
 - préférences d'affichage avant connexion ;
 - état du tutoriel.
@@ -436,9 +432,9 @@ Cas d'usage implémentés :
 - consulter son historique et ses statistiques ;
 - orchestrer la suppression des données applicatives lors de la suppression du
   compte ;
-- exporter les données du compte.
-
-L'émission d'un ticket de jeu court reste un cas d'usage v2.
+- exporter les données du compte ;
+- créer ou rejoindre un salon privé et renouveler un ticket court ;
+- consulter son historique multijoueur privé.
 
 Chaque service effectue l'autorisation sur l'identité résolue et dépend
 d'interfaces de repositories.
@@ -474,18 +470,18 @@ par exemple `/` pour le client et `/api` pour l'API.
 ### Identité du serveur de jeu v2
 
 Le cookie web n'est pas copié dans un stockage JavaScript persistant. Le flux
-recommandé est :
+implémenté est :
 
 1. Le client authentifié demande à l'API un ticket de jeu.
 2. L'API vérifie la session et émet un jeton court, signé et limité à une salle
    ou à une opération de création de salle.
 3. Le client garde ce ticket uniquement en mémoire.
-4. Colyseus vérifie signature, émetteur, audience, expiration, nonce et
-   autorisation de salle.
+4. Colyseus vérifie signature HMAC, expiration, identifiant à usage unique,
+   génération de connexion et autorisation de salle.
 5. Le ticket est consommé ou expire rapidement.
 
-Better Auth peut fournir des JWT et une clé publique JWKS pour un service qui ne
-peut pas utiliser la session. Le choix exact doit être consigné dans un ADR v2.
+Le ticket n’est jamais placé dans l’URL. La reprise utilise un jeton rotatif,
+à usage unique, émis directement par le serveur de jeu.
 
 ## Contrats HTTP
 
@@ -495,11 +491,11 @@ Les groupes fonctionnels v1 exposés sont :
 | --- | --- | --- |
 | Auth | inscription et connexion par pseudonyme, session, déconnexion, changement de mot de passe | Selon l’opération |
 | Profil | lire et modifier la bio ; enregistrer, lire ou supprimer l’avatar | Requise |
-| Préférences | lire et modifier accessibilité, audio et affichage | Requise |
+| Préférences | lire et modifier mouvement et affichage | Requise |
 | Résultats solo | enregistrer un résultat terminé et lister son historique | Requise |
 | Statistiques | lire ses agrégats solo et multijoueurs | Requise |
 | Compte | exporter ou supprimer ses données selon la décision produit | Requise et renforcée |
-| Ticket de jeu | obtenir un ticket court pour Colyseus | Requise, v2 |
+| Multijoueur | créer/rejoindre un salon, renouveler un ticket et lire son historique | Requise |
 
 Règles de contrat :
 
@@ -537,14 +533,18 @@ dernières sont des détails internes : l’adresse technique sous
 | `player_preferences` | Audio, mouvement, affichage et tutoriel | Un enregistrement par utilisateur ; valeurs bornées |
 | `game_record` | Résultat terminal d'une partie solo ou en ligne | Identifiant stable unique ; mode, version de règles, dates, état terminal |
 | `game_participant` | Siège, adversaire, résultat et variation de réserve | Unicité partie + siège ; utilisateur nullable pour l'IA |
+| `multiplayer_game` | Résultat terminal autoritaire | `game_id` unique ; versions, graine, initiative et motif terminal |
+| `multiplayer_participant` | Deux sièges d’une partie en ligne | Unicité partie + siège ; utilisateur nullable après suppression |
+| `multiplayer_round` | Transcript révélé des manches | Unicité partie + numéro ; choix, pronostics, somme et réserves cohérents |
+| `active_multiplayer_lease` | Bail expirant d’un compte actif | Un bail par compte ; jeton de propriétaire, heartbeat et expiration |
 
 Les statistiques v1 sont calculées depuis `game_record` et ne disposent pas
 d'une table de projection. Une telle projection ne sera ajoutée qu'après mesure
 d'un besoin de lecture.
 
-Un journal détaillé des manches n'est pas requis pour la v1. En v2, le journal
-d'événements nécessaire au support ou au replay doit faire l'objet d'une
-décision de rétention et de confidentialité.
+La v2 conserve uniquement le transcript métier révélé des manches terminées.
+Elle ne persiste ni journal réseau, ni commande refusée, ni temps de réflexion,
+ni secret technique.
 
 ### Source de vérité
 

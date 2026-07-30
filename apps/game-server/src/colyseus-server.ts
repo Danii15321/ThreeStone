@@ -21,6 +21,9 @@ import {
   configureInternalAdmissionHttp,
   type InternalAdmissionHttpOptions,
 } from './internal-admission-http.js';
+import type { GameServerDrainController } from './game-server-drain-controller.js';
+import type { GameServerMetrics } from './game-server-metrics.js';
+import { MAX_WEBSOCKET_PAYLOAD_BYTES, isWebSocketOriginAllowed } from './websocket-security.js';
 
 export const GAME_ROOM_TYPE = 'three_stone';
 
@@ -41,31 +44,57 @@ const admissionIdentitySchema = z.strictObject({
 const syncRequestSchema = z.strictObject({
   protocolVersion: z.literal(2),
 });
+const resumeTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43,256}$/);
 
 export interface ThreeStoneRoom extends Room {
   readonly authoritativeMatch: AuthoritativeMatch;
 }
 
 export interface GameServerOptions {
+  readonly drainController?: GameServerDrainController;
   readonly internalAdmission?: InternalAdmissionHttpOptions;
   readonly isReady: () => boolean | Promise<boolean>;
   readonly matchDependencies: MatchDependencies;
+  readonly metrics?: GameServerMetrics;
+  readonly webOrigin?: string;
 }
 
 export function createGameServer(options: GameServerOptions): Server {
-  const RoomClass = createThreeStoneRoomClass(options.matchDependencies);
+  const matchDependencies: MatchDependencies = {
+    ...options.matchDependencies,
+    ...(options.drainController === undefined ? {} : { drainController: options.drainController }),
+    ...(options.metrics === undefined ? {} : { metrics: options.metrics }),
+  };
+  const RoomClass = createThreeStoneRoomClass(matchDependencies);
+  const internalAdmission =
+    options.internalAdmission === undefined
+      ? undefined
+      : {
+          ...options.internalAdmission,
+          ...(options.drainController === undefined
+            ? {}
+            : { drainController: options.drainController }),
+          ...(options.metrics === undefined ? {} : { metrics: options.metrics }),
+        };
   return defineServer({
     greet: false,
     rooms: {
       [GAME_ROOM_TYPE]: defineRoom(RoomClass),
     },
     transport: new WebSocketTransport({
+      maxPayload: MAX_WEBSOCKET_PAYLOAD_BYTES,
       pingInterval: 10_000,
       pingMaxRetries: 3,
+      ...(options.webOrigin === undefined
+        ? {}
+        : {
+            verifyClient: ({ origin }: { readonly origin: string | undefined }) =>
+              isWebSocketOriginAllowed(origin, options.webOrigin!),
+          }),
     }),
     express: (app) => {
-      if (options.internalAdmission !== undefined) {
-        configureInternalAdmissionHttp(app, options.internalAdmission);
+      if (internalAdmission !== undefined) {
+        configureInternalAdmissionHttp(app, internalAdmission);
       }
       configureHealthRoutes(app, options.isReady);
     },
@@ -85,6 +114,8 @@ function configureHealthRoutes(app: Application, isReady: () => boolean | Promis
 function createThreeStoneRoomClass(dependencies: MatchDependencies) {
   return class ConfiguredThreeStoneRoom extends Room implements ThreeStoneRoom {
     authoritativeMatch!: AuthoritativeMatch;
+    private readonly joinedConnections = new Set<string>();
+    private unregisterDrain: (() => void) | null = null;
 
     override onCreate(rawOptions: unknown): void {
       const roomOptions = roomOptionsSchema.parse(rawOptions);
@@ -94,6 +125,10 @@ function createThreeStoneRoomClass(dependencies: MatchDependencies) {
       this.patchRate = null;
       this.autoDispose = false;
       this.authoritativeMatch = new AuthoritativeMatch(roomOptions, dependencies);
+      this.unregisterDrain =
+        dependencies.drainController?.registerRoom(this.roomId, (reason) =>
+          this.authoritativeMatch.shutdown(reason),
+        ) ?? null;
       this.onMessage('command', async (client, command: unknown) => {
         await this.authoritativeMatch.receive(client.sessionId, command);
       });
@@ -122,10 +157,21 @@ function createThreeStoneRoomClass(dependencies: MatchDependencies) {
       if ((ticket === null) === (resumeToken === null)) {
         throw roomUnavailable();
       }
+      if (resumeToken !== null && !resumeTokenSchema.safeParse(resumeToken).success) {
+        dependencies.metrics?.resumeFailed();
+        throw roomUnavailable();
+      }
       const identity =
         resumeToken === null
           ? await dependencies.verifyAdmissionTicket(ticket!, this.roomId)
           : this.authoritativeMatch.consumeResumeToken(resumeToken);
+      if (resumeToken !== null) {
+        if (identity === null) {
+          dependencies.metrics?.resumeFailed();
+        } else {
+          dependencies.metrics?.resumeSucceeded();
+        }
+      }
       if (identity === null || !this.authoritativeMatch.canAdmit(identity)) {
         throw roomUnavailable();
       }
@@ -148,10 +194,15 @@ function createThreeStoneRoomClass(dependencies: MatchDependencies) {
       if (!result.ok) {
         throw roomUnavailable();
       }
+      this.joinedConnections.add(client.sessionId);
+      dependencies.metrics?.connectionOpened();
     }
 
     override onLeave(client: Client): void {
       this.authoritativeMatch.leave(client.sessionId);
+      if (this.joinedConnections.delete(client.sessionId)) {
+        dependencies.metrics?.connectionClosed();
+      }
     }
 
     override onBeforeShutdown(): void {
@@ -160,6 +211,8 @@ function createThreeStoneRoomClass(dependencies: MatchDependencies) {
     }
 
     override async onDispose(): Promise<void> {
+      this.unregisterDrain?.();
+      this.unregisterDrain = null;
       await this.authoritativeMatch.shutdown('room-disposed');
     }
   };

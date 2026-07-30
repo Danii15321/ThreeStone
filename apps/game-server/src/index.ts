@@ -14,3 +14,4 @@ export {
   type ThreeStoneRoom,
 } from './colyseus-server.js';
 export { readGameServerEnvironment, type GameServerEnvironment } from './config/environment.js';
+export { RetryingTerminalResultRepository } from './terminal-result-retrier.js';

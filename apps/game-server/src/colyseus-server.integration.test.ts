@@ -7,6 +7,8 @@ import { HmacAdmissionTicketVerifier, issueAdmissionTicket } from '@three-stone/
 import type { AdmissionIdentity, MatchDependencies } from './authoritative-match.js';
 import { AdmissionRegistry } from './admission-registry.js';
 import { GAME_ROOM_TYPE, createGameServer, type ThreeStoneRoom } from './colyseus-server.js';
+import { GameServerDrainController } from './game-server-drain-controller.js';
+import { GameServerMetrics } from './game-server-metrics.js';
 
 const ROOM_ID = 'a4e97166-e9e0-49cf-8812-96be1f59687a';
 const GAME_ID = 'dce9bd39-d4d2-431d-ad54-a959a42c983d';
@@ -37,6 +39,17 @@ describe('Colyseus game server', () => {
     ['network-ticket-two', identity('network-user-two', 'player-two')],
   ]);
   const hmacVerifier = new HmacAdmissionTicketVerifier(TICKET_SECRET, () => NOW);
+  const metrics = new GameServerMetrics();
+  let forceDrain: (() => void) | null = null;
+  const drainController = new GameServerDrainController({
+    clock: () => NOW,
+    schedule(_delayMs, task) {
+      forceDrain = task;
+      return () => {
+        forceDrain = null;
+      };
+    },
+  });
   const dependencies: MatchDependencies = {
     clock: { now: () => 1_775_000_000_000 },
     resultRepository: {
@@ -65,11 +78,15 @@ describe('Colyseus game server', () => {
     server = await boot(
       createGameServer({
         internalAdmission: {
+          drainController,
+          metrics,
           registry,
           secret: INTERNAL_SECRET,
         },
+        drainController,
         isReady: () => ready,
         matchDependencies: dependencies,
+        metrics,
       }),
     );
   });
@@ -252,6 +269,65 @@ describe('Colyseus game server', () => {
       winner: 'player-one',
     });
     expect(saved).toHaveLength(1);
+  });
+
+  it('drains active rooms, refuses admissions and exposes only safe metrics', async () => {
+    const drain = await server.http.post('/internal/v1/drain', {
+      body: {},
+      headers: {
+        'content-type': 'application/json',
+        'x-game-server-secret': INTERNAL_SECRET,
+      },
+    });
+    expect(drain).toMatchObject({
+      statusCode: 202,
+      data: {
+        acceptingAdmissions: false,
+        state: 'draining',
+      },
+    });
+    expect(Number(drain.data.activeRooms)).toBeGreaterThan(0);
+
+    await expect(
+      server.http.post('/internal/v1/rooms', {
+        body: {
+          creatorUserId: 'blocked-creator',
+          gameId: randomUUID(),
+          inviteCodeHash: 'd'.repeat(64),
+          leaseExpiresAt: NOW + 120_000,
+          leaseToken: 'blocked-lease-token-with-high-entropy',
+          roomId: randomUUID(),
+          seed: 83,
+        },
+        headers: {
+          'content-type': 'application/json',
+          'x-game-server-secret': INTERNAL_SECRET,
+        },
+      }),
+    ).rejects.toMatchObject({ statusCode: 503 });
+
+    const metricResponse = await server.http.get('/internal/v1/metrics', {
+      headers: { 'x-game-server-secret': INTERNAL_SECRET },
+    });
+    expect(metricResponse.statusCode).toBe(200);
+    expect(metricResponse.data).toMatchObject({
+      activeConnections: expect.any(Number),
+      roomsCreated: expect.any(Number),
+      roomsJoined: expect.any(Number),
+    });
+    expect(JSON.stringify(metricResponse.data)).not.toMatch(
+      /roomId|userId|ticket|token|invite|hidden|choice|username|bio/i,
+    );
+
+    forceDrain?.();
+    await expect
+      .poll(async () => {
+        const status = await server.http.get('/internal/v1/drain', {
+          headers: { 'x-game-server-secret': INTERNAL_SECRET },
+        });
+        return status.data;
+      })
+      .toMatchObject({ activeRooms: 0, state: 'drained' });
   });
 });
 

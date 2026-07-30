@@ -143,6 +143,22 @@ export function createApp(dependencies?: ApiDependencies) {
         next,
       ),
     );
+    app.on(['POST', 'PUT', 'PATCH', 'DELETE'], '/api/*', async (context, next) => {
+      const origin = context.req.header('origin');
+      if (
+        !context.req.path.startsWith('/api/auth/') &&
+        origin !== undefined &&
+        origin !== dependencies.webOrigin
+      ) {
+        return errorResponse(
+          context,
+          403,
+          'FORBIDDEN',
+          'The request origin is not allowed for this operation.',
+        );
+      }
+      await next();
+    });
 
     app.use('/api/account/*', authenticate(dependencies.authGateway));
     app.use('/api/profile', authenticate(dependencies.authGateway));

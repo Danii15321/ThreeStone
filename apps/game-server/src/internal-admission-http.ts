@@ -6,6 +6,8 @@ import type { Application, Response } from 'express';
 import { z } from 'zod';
 
 import type { AdmissionRegistry, AdmissionReservation } from './admission-registry.js';
+import type { GameServerDrainController } from './game-server-drain-controller.js';
+import type { GameServerMetrics } from './game-server-metrics.js';
 const GAME_ROOM_TYPE = 'three_stone';
 
 const createRoomRequestSchema = z.strictObject({
@@ -35,6 +37,8 @@ const releaseSeatRequestSchema = refreshSeatRequestSchema.extend({
 });
 
 export interface InternalAdmissionHttpOptions {
+  readonly drainController?: GameServerDrainController;
+  readonly metrics?: GameServerMetrics;
   readonly registry: AdmissionRegistry;
   readonly secret: string;
   readonly createRoom?: (
@@ -59,7 +63,35 @@ export function configureInternalAdmissionHttp(
     next();
   });
 
+  app.get('/internal/v1/metrics', (_request, response) => {
+    response.status(200).json(options.metrics?.snapshot() ?? {});
+  });
+  app.get('/internal/v1/drain', (_request, response) => {
+    response.status(200).json(
+      options.drainController?.status() ?? {
+        acceptingAdmissions: true,
+        activeRooms: 0,
+        deadline: null,
+        state: 'accepting',
+      },
+    );
+  });
+  app.post('/internal/v1/drain', (_request, response) => {
+    response.status(202).json(
+      options.drainController?.start() ?? {
+        acceptingAdmissions: true,
+        activeRooms: 0,
+        deadline: null,
+        state: 'accepting',
+      },
+    );
+  });
+
   app.post('/internal/v1/rooms', async (request, response) => {
+    if (isDraining(options)) {
+      draining(response);
+      return;
+    }
     const parsed = createRoomRequestSchema.safeParse(request.body);
     if (!parsed.success) {
       response.status(422).json({ error: 'INVALID_REQUEST' });
@@ -79,6 +111,7 @@ export function configureInternalAdmissionHttp(
       if (created.roomId !== parsed.data.roomId) {
         throw new Error('The created room id differs from its reservation.');
       }
+      options.metrics?.roomCreated();
       response.status(201).json(reservation);
     } catch {
       options.registry.releaseSeat({
@@ -91,12 +124,20 @@ export function configureInternalAdmissionHttp(
   });
 
   app.post('/internal/v1/rooms/reserve', (request, response) => {
+    if (isDraining(options)) {
+      draining(response);
+      return;
+    }
     const parsed = reserveSeatRequestSchema.safeParse(request.body);
     if (!parsed.success) {
       response.status(422).json({ error: 'INVALID_REQUEST' });
       return;
     }
-    sendReservation(response, options.registry.reserveByCode(parsed.data));
+    const reservation = options.registry.reserveByCode(parsed.data);
+    if (reservation !== null) {
+      options.metrics?.roomJoined();
+    }
+    sendReservation(response, reservation);
   });
 
   app.post('/internal/v1/rooms/refresh', (request, response) => {
@@ -132,6 +173,14 @@ function sendReservation(response: Response, reservation: AdmissionReservation |
 
 function roomUnavailable(response: Response): void {
   response.status(409).json({ error: 'ROOM_UNAVAILABLE' });
+}
+
+function isDraining(options: InternalAdmissionHttpOptions): boolean {
+  return options.drainController?.acceptingAdmissions === false;
+}
+
+function draining(response: Response): void {
+  response.status(503).json({ error: 'DRAINING' });
 }
 
 function secretMatches(supplied: string, expected: string): boolean {

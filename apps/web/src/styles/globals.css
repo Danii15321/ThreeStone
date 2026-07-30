@@ -47,12 +47,12 @@
 }
 
 html {
-  min-width: 20rem;
+  min-width: 320px;
   background: var(--color-bg-deep);
 }
 
 body {
-  min-width: 20rem;
+  min-width: 320px;
   min-height: 100dvh;
   margin: 0;
   background:

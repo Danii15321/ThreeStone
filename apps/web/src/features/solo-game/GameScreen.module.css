@@ -480,6 +480,13 @@
   font-size: 1.4rem;
 }
 
+.sessionScore > span {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .reactionBar {
   display: flex;
   flex-wrap: wrap;
@@ -521,7 +528,7 @@
   background: linear-gradient(145deg, #f4e5ca, #d7b783);
   box-shadow: 0 0.8rem 2rem rgb(16 10 8 / 45%);
   text-align: center;
-  transform: translateX(-50%);
+  translate: -50% 0;
   animation: bubble-in 180ms ease-out both;
 }
 
@@ -620,6 +627,7 @@
 
   .topbar {
     align-items: center;
+    flex-wrap: wrap;
   }
 
   .topbar h1 {
@@ -628,9 +636,11 @@
 
   .topbar .secondaryButton {
     width: auto;
+    max-width: 100%;
     min-height: 2.5rem;
     padding: 0 0.7rem;
     font-size: 0.74rem;
+    white-space: normal;
   }
 
   .profiles {
@@ -665,8 +675,12 @@
 
   .initiative {
     bottom: -0.55rem;
+    max-width: 40vw;
     padding: 0.1rem 0.28rem;
     font-size: 0.42rem;
+    line-height: 1.1;
+    text-align: center;
+    white-space: normal;
   }
 
   .predictionBubble {
@@ -718,6 +732,13 @@
 
   .controlFooter .primaryButton {
     width: 100%;
+  }
+
+  .reactionToast {
+    left: 50vw;
+    width: calc(100vw - 2rem);
+    min-width: 0;
+    max-width: calc(100vw - 2rem);
   }
 }
 

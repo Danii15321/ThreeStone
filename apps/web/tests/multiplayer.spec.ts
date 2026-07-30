@@ -1,4 +1,4 @@
-import { expect, test, type BrowserContext, type Page } from '@playwright/test';
+import { expect, test, type BrowserContext, type Locator, type Page } from '@playwright/test';
 
 const password = 'E2E-Multiplayer-2026!';
 
@@ -37,6 +37,53 @@ async function openMultiplayer(page: Page): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Choisissez votre table' })).toBeVisible();
 }
 
+async function setSliderWithKeyboard(slider: Locator, target: number): Promise<void> {
+  await slider.focus();
+  await slider.press('Home');
+  for (let step = 0; step < 7; step += 1) {
+    const current = Number(await slider.inputValue());
+    if (current === target) {
+      return;
+    }
+    await slider.press(current < target ? 'ArrowRight' : 'ArrowLeft');
+  }
+  await expect(slider).toHaveValue(String(target));
+}
+
+async function expectNoHorizontalOverflow(page: Page): Promise<void> {
+  const offenders = await page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>('body *')]
+      .map((element) => {
+        const bounds = element.getBoundingClientRect();
+        return {
+          className: element.className,
+          clientWidth: element.clientWidth,
+          left: Math.round(bounds.left),
+          overflowX: getComputedStyle(element).overflowX,
+          right: Math.round(bounds.right),
+          scrollWidth: element.scrollWidth,
+          tagName: element.tagName,
+          width: Math.round(bounds.width),
+        };
+      })
+      .filter(
+        ({ clientWidth, left, overflowX, right, scrollWidth, width }) =>
+          left < -1 ||
+          right > document.documentElement.clientWidth + 1 ||
+          width > document.documentElement.clientWidth + 1 ||
+          (overflowX === 'visible' &&
+            scrollWidth > clientWidth + 1 &&
+            (left + scrollWidth > document.documentElement.clientWidth + 1 ||
+              left + clientWidth - scrollWidth < -1)),
+      )
+      .slice(0, 10),
+  );
+  expect(offenders).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+    await page.evaluate(() => document.documentElement.clientWidth),
+  );
+}
+
 test('two isolated browser contexts finish the same authoritative match', async ({
   browser,
 }, testInfo) => {
@@ -54,6 +101,8 @@ test('two isolated browser contexts finish the same authoritative match', async 
   try {
     const creator = await createPlayer(creatorContext, creatorName, true);
     const guest = await createPlayer(guestContext, guestName);
+    await creator.emulateMedia({ reducedMotion: 'reduce' });
+    await guest.emulateMedia({ reducedMotion: 'reduce' });
 
     await openMultiplayer(creator);
     await creator.getByRole('button', { name: 'Créer un salon' }).click();
@@ -82,9 +131,13 @@ test('two isolated browser contexts finish the same authoritative match', async 
     await expect(guest.getByRole('img', { name: `Avatar de ${creatorName}` })).toBeVisible();
 
     for (let round = 1; round <= 3; round += 1) {
-      await creator.getByRole('button', { name: 'Caillou 1' }).click();
+      const creatorStone = creator.getByRole('button', { name: 'Caillou 1' });
+      await creatorStone.focus();
+      await creatorStone.press('Space');
       await guest.getByRole('button', { name: 'Caillou 1' }).click();
-      await creator.getByRole('button', { name: 'Valider mon choix · 1' }).click();
+      const creatorChoice = creator.getByRole('button', { name: 'Valider mon choix · 1' });
+      await creatorChoice.focus();
+      await creatorChoice.press('Enter');
       await expect(creator.locator('body')).not.toContainText('choix adverse');
       await guest.getByRole('button', { name: 'Valider mon choix · 1' }).click();
 
@@ -96,11 +149,21 @@ test('two isolated browser contexts finish the same authoritative match', async 
       const firstPrediction = creatorPredictsFirst ? 2 : 0;
       const secondPrediction = creatorPredictsFirst ? 0 : 2;
 
-      await first.getByRole('slider', { name: 'Votre pronostic' }).fill(String(firstPrediction));
-      await first.getByRole('button', { name: `Annoncer ${firstPrediction}` }).click();
+      const firstSlider = first.getByRole('slider', { name: 'Votre pronostic' });
+      await setSliderWithKeyboard(firstSlider, firstPrediction);
+      const firstAnnouncement = first.getByRole('button', {
+        name: `Annoncer ${firstPrediction}`,
+      });
+      await firstAnnouncement.focus();
+      await firstAnnouncement.press('Enter');
       await expect(second.getByRole('slider', { name: 'Votre pronostic' })).toBeVisible();
-      await second.getByRole('slider', { name: 'Votre pronostic' }).fill(String(secondPrediction));
-      await second.getByRole('button', { name: `Annoncer ${secondPrediction}` }).click();
+      const secondSlider = second.getByRole('slider', { name: 'Votre pronostic' });
+      await setSliderWithKeyboard(secondSlider, secondPrediction);
+      const secondAnnouncement = second.getByRole('button', {
+        name: `Annoncer ${secondPrediction}`,
+      });
+      await secondAnnouncement.focus();
+      await secondAnnouncement.press('Enter');
 
       const expectedCreatorReserve = 3 - round;
       await expect(creator.getByRole('region', { name: `${creatorName}, connecté` })).toContainText(
@@ -143,6 +206,14 @@ test('two isolated browser contexts finish the same authoritative match', async 
     await expect(creator.getByRole('group', { name: 'Choisissez vos cailloux' })).toBeVisible();
     await expect(guest.getByRole('group', { name: 'Choisissez vos cailloux' })).toBeVisible();
     await expect(creator.getByLabel('Score de la série')).toContainText('0 – 1');
+
+    for (const page of [creator, guest]) {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
+      await expect(page.getByRole('group', { name: 'Choisissez vos cailloux' })).toBeVisible();
+      await expect(page.getByRole('button', { name: /Valider mon choix/ })).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+    }
   } finally {
     await creatorContext.close();
     await guestContext.close();

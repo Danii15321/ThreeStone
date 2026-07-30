@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { HmacAdmissionTicketVerifier, issueAdmissionTicket } from '@three-stone/protocol/node';
+import {
+  HmacAdmissionTicketVerifier,
+  MAX_ADMISSION_TICKET_BYTES,
+  issueAdmissionTicket,
+} from '@three-stone/protocol/node';
 
 const SECRET = 'development-test-secret-with-at-least-thirty-two-bytes';
 const ROOM_ID = '7d34b06c-02a8-40e3-86ca-24e81cd0ff19';
@@ -21,6 +25,15 @@ function claims() {
 }
 
 describe('multiplayer admission ticket', () => {
+  it('rejects oversized tickets before attempting to decode them', async () => {
+    const verifier = new HmacAdmissionTicketVerifier(SECRET, () => NOW);
+
+    expect(MAX_ADMISSION_TICKET_BYTES).toBe(2_048);
+    await expect(
+      verifier.verify('x'.repeat(MAX_ADMISSION_TICKET_BYTES + 1), ROOM_ID),
+    ).resolves.toBe(null);
+  });
+
   it('binds the signed payload to the room admission action', () => {
     const ticket = issueAdmissionTicket(claims(), SECRET);
     const encodedPayload = ticket.split('.')[0] ?? '';

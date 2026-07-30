@@ -7,6 +7,7 @@ import { PROTOCOL_VERSION } from '../commands.js';
 const MAX_TICKET_LIFETIME_MS = 45_000;
 const MAX_CLOCK_SKEW_MS = 5_000;
 const MIN_SECRET_BYTES = 32;
+export const MAX_ADMISSION_TICKET_BYTES = 2_048;
 
 const admissionTicketPayloadSchema = z.strictObject({
   action: z.literal('join-room'),
@@ -68,6 +69,9 @@ export class HmacAdmissionTicketVerifier implements AdmissionTicketVerifier {
   }
 
   async verify(ticket: string, expectedRoomId: string): Promise<AdmissionTicketClaims | null> {
+    if (Buffer.byteLength(ticket, 'utf8') > MAX_ADMISSION_TICKET_BYTES) {
+      return null;
+    }
     const now = this.now();
     this.deleteExpiredConsumedIds(now);
     const [encodedPayload, signature, extra] = ticket.split('.');

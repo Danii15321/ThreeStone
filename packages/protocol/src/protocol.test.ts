@@ -9,6 +9,7 @@ import {
   createCommandAccepted,
   createPublicSnapshot,
   createSeatObservation,
+  parseClientCommand,
   roomReactionSchema,
   roomResumeTokenSchema,
   roomSnapshotSchema,
@@ -73,6 +74,46 @@ describe('client commands', () => {
 
   it('publishes a strict client message size budget', () => {
     expect(MAX_CLIENT_MESSAGE_BYTES).toBe(1_024);
+    expect(() =>
+      parseClientCommand({
+        protocolVersion: PROTOCOL_VERSION,
+        type: 'round.choose',
+        commandId: 'oversized-command',
+        roomId: 'room-0001',
+        knownSequence: 3,
+        payload: { count: 2, padding: 'x'.repeat(MAX_CLIENT_MESSAGE_BYTES) },
+      }),
+    ).toThrow(RangeError);
+  });
+
+  it('rejects a deterministic corpus of malformed and reordered commands', () => {
+    const malformed: unknown[] = [
+      null,
+      [],
+      '',
+      '{',
+      { protocolVersion: 2 },
+      {
+        protocolVersion: 2,
+        type: 'round.choose',
+        commandId: 'short',
+        roomId: 'room-0001',
+        knownSequence: -1,
+        payload: { count: 1 },
+      },
+      {
+        protocolVersion: 2,
+        type: 'round.predict',
+        commandId: 'malformed-command',
+        roomId: 'room-0001',
+        knownSequence: Number.MAX_SAFE_INTEGER + 1,
+        payload: { value: 7 },
+      },
+    ];
+
+    for (const input of malformed) {
+      expect(() => parseClientCommand(input)).toThrow();
+    }
   });
 
   it('validates a private one-use resume token message without accepting extra fields', () => {

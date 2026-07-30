@@ -1,25 +1,47 @@
 import { z } from 'zod';
 
-const environmentSchema = z.object({
-  API_HOST: z.string().min(1).default('127.0.0.1'),
-  API_PORT: z.coerce.number().int().min(1).max(65_535).default(3001),
-  AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(100),
-  AUTH_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(1).default(60),
-  BETTER_AUTH_SECRET: z.string().min(32),
-  BETTER_AUTH_URL: z.url().default('http://localhost:3001'),
-  DATABASE_MAX_CONNECTIONS: z.coerce.number().int().min(1).max(100).default(10),
-  DATABASE_URL: z.url(),
-  GAME_SERVER_INSTANCE_ID: z.string().min(1).max(128).default('game-server-local'),
-  GAME_SERVER_INTERNAL_SECRET: z.string().min(32),
-  GAME_SERVER_INTERNAL_URL: z.url().default('http://127.0.0.1:2567'),
-  GAME_SERVER_PUBLIC_URL: z.url().default('ws://127.0.0.1:2567'),
-  MAX_REQUEST_BODY_BYTES: z.coerce.number().int().min(1_024).default(32_768),
-  MULTIPLAYER_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(30),
-  MULTIPLAYER_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(1).default(60),
-  MULTIPLAYER_TICKET_SECRET: z.string().min(32),
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  WEB_ORIGIN: z.url().default('http://localhost:5173'),
-});
+const environmentSchema = z
+  .object({
+    API_HOST: z.string().min(1).default('127.0.0.1'),
+    API_PORT: z.coerce.number().int().min(1).max(65_535).default(3001),
+    AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(100),
+    AUTH_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(1).default(60),
+    BETTER_AUTH_SECRET: z.string().min(32),
+    BETTER_AUTH_URL: z.url().default('http://localhost:3001'),
+    DATABASE_MAX_CONNECTIONS: z.coerce.number().int().min(1).max(100).default(10),
+    DATABASE_URL: z.url(),
+    GAME_SERVER_INSTANCE_ID: z.string().min(1).max(128).default('game-server-local'),
+    GAME_SERVER_INTERNAL_SECRET: z.string().min(32),
+    GAME_SERVER_INTERNAL_URL: z.url().default('http://127.0.0.1:2567'),
+    GAME_SERVER_PUBLIC_URL: z.url().default('ws://127.0.0.1:2567'),
+    MAX_REQUEST_BODY_BYTES: z.coerce.number().int().min(1_024).default(32_768),
+    MULTIPLAYER_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(30),
+    MULTIPLAYER_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(1).default(60),
+    MULTIPLAYER_TICKET_SECRET: z.string().min(32),
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    WEB_ORIGIN: z.url().default('http://localhost:5173'),
+  })
+  .superRefine((environment, context) => {
+    if (environment.NODE_ENV !== 'production') {
+      return;
+    }
+    for (const key of ['BETTER_AUTH_URL', 'GAME_SERVER_INTERNAL_URL', 'WEB_ORIGIN'] as const) {
+      if (new URL(environment[key]).protocol !== 'https:') {
+        context.addIssue({
+          code: 'custom',
+          message: `${key} must use HTTPS in production.`,
+          path: [key],
+        });
+      }
+    }
+    if (new URL(environment.GAME_SERVER_PUBLIC_URL).protocol !== 'wss:') {
+      context.addIssue({
+        code: 'custom',
+        message: 'GAME_SERVER_PUBLIC_URL must use WSS in production.',
+        path: ['GAME_SERVER_PUBLIC_URL'],
+      });
+    }
+  });
 
 export type ApiEnvironment = z.infer<typeof environmentSchema>;
 

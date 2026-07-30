@@ -9,6 +9,7 @@ describe('game-server environment', () => {
         DATABASE_URL: 'postgres://player:password@localhost:5432/three_stone_game',
         GAME_SERVER_INTERNAL_SECRET: 'an-internal-secret-that-is-long-enough',
         MULTIPLAYER_TICKET_SECRET: 'a-development-secret-that-is-long-enough',
+        WEB_ORIGIN: 'http://localhost:5173',
       }),
     ).toMatchObject({
       GAME_SERVER_HOST: '0.0.0.0',
@@ -16,6 +17,7 @@ describe('game-server environment', () => {
       GAME_SERVER_PORT: 2567,
       NODE_ENV: 'development',
       WAITING_ROOM_LIFETIME_SECONDS: 900,
+      WEB_ORIGIN: 'http://localhost:5173',
     });
   });
 
@@ -26,6 +28,19 @@ describe('game-server environment', () => {
         GAME_SERVER_PORT: '0',
         GAME_SERVER_INTERNAL_SECRET: 'short',
         MULTIPLAYER_TICKET_SECRET: 'short',
+        WEB_ORIGIN: 'http://localhost:5173',
+      }),
+    ).toThrow();
+  });
+
+  it('requires HTTPS origins in production', () => {
+    expect(() =>
+      readGameServerEnvironment({
+        DATABASE_URL: 'postgres://player:password@localhost:5432/three_stone_game',
+        GAME_SERVER_INTERNAL_SECRET: 'an-internal-secret-that-is-long-enough',
+        MULTIPLAYER_TICKET_SECRET: 'a-development-secret-that-is-long-enough',
+        NODE_ENV: 'production',
+        WEB_ORIGIN: 'http://three-stone.example',
       }),
     ).toThrow();
   });

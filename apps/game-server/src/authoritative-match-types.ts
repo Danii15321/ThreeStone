@@ -1,6 +1,8 @@
 import type { PlayerId } from '@three-stone/game-core';
 
 import type { TerminalResultRepository } from './terminal-result-repository.js';
+import type { GameServerDrainController } from './game-server-drain-controller.js';
+import type { GameServerMetrics } from './game-server-metrics.js';
 
 export interface MatchClock {
   now(): number;
@@ -36,11 +38,13 @@ export interface MatchDependencies {
   readonly createGameSeed?: () => number;
   readonly createResumeToken?: () => string;
   readonly deadlines?: Partial<MatchDeadlines>;
+  readonly drainController?: GameServerDrainController;
   readonly leaseHeartbeat?: {
     readonly intervalMs: number;
     check(roomId: string): Promise<'healthy' | 'lost' | 'unavailable'>;
   };
   readonly resultRepository: TerminalResultRepository;
+  readonly metrics?: GameServerMetrics;
   readonly schedule?: (delayMs: number, task: () => void) => () => void;
   readonly verifyAdmissionTicket: (
     ticket: string,

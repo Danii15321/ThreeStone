@@ -98,6 +98,7 @@ export class AuthoritativeMatch {
   private readonly seats = new Map<PlayerId, SeatState>();
   private readonly connectionSeats = new Map<string, PlayerId>();
   private readonly ready = new Map<PlayerId, boolean>();
+  private readonly recordedMetricGames = new Set<string>();
   private gameplayStarted = false;
   private readonly processed = new Map<string, Map<string, ProcessedCommand>>();
   private readonly roomSession: MultiplayerRoomSession;
@@ -229,6 +230,7 @@ export class AuthoritativeMatch {
     connectionId: string,
     rawCommand: unknown,
   ): Promise<CommandAccepted | CommandRejected> {
+    const receivedAt = this.dependencies.clock.now();
     const playerId = this.connectionSeats.get(connectionId);
     const commandId = commandIdFrom(rawCommand);
     if (playerId === undefined) {
@@ -283,6 +285,7 @@ export class AuthoritativeMatch {
     byUser.set(command.commandId, { fingerprint, response });
     this.processed.set(seat.identity.userId, byUser);
     seat.connection.send(response.type, response);
+    this.dependencies.metrics?.commandAccepted(this.dependencies.clock.now() - receivedAt);
     if (command.type === 'session.react') {
       this.broadcastReaction(playerId, command.payload.reaction);
     }
@@ -347,8 +350,12 @@ export class AuthoritativeMatch {
     }
     const health = await heartbeat.check(this.options.roomId);
     if (health === 'lost') {
+      this.dependencies.metrics?.leaseRenewalFailed();
       await this.shutdown('lease-lost');
       return;
+    }
+    if (health === 'unavailable') {
+      this.dependencies.metrics?.leaseRenewalFailed();
     }
     this.scheduleLeaseHeartbeat();
   }
@@ -690,9 +697,19 @@ export class AuthoritativeMatch {
 
   private async recordTerminalState(): Promise<void> {
     this.roomSession.recordTerminalGame(this.currentState, this.dependencies.clock.now());
+    if (!this.recordedMetricGames.has(this.currentState.gameId)) {
+      this.recordedMetricGames.add(this.currentState.gameId);
+      if (this.currentState.phase === 'finished' && this.currentState.terminalReason !== null) {
+        this.dependencies.metrics?.matchFinished(this.currentState.terminalReason);
+      } else if (this.currentState.phase === 'cancelled') {
+        this.dependencies.metrics?.matchCancelled();
+      }
+    }
     this.rescheduleDeadlineTimer();
     if (this.currentState.phase === 'finished') {
-      this.terminalPersistence ??= this.persistTerminalResult();
+      this.terminalPersistence ??= this.persistTerminalResult().catch(() => {
+        this.dependencies.metrics?.persistenceFailed();
+      });
       await this.terminalPersistence;
     }
   }

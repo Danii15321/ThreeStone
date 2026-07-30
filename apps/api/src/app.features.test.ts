@@ -50,6 +50,24 @@ describe('v1 API boundaries', () => {
     expect(denied.headers.get('access-control-allow-origin')).toBeNull();
   });
 
+  it('rejects a state-changing authenticated request from another origin', async () => {
+    const app = createApp(createTestDependencies({ userId: 'csrf-owner' }));
+    const response = await app.request('/api/profile', {
+      body: JSON.stringify({ bio: '', expectedVersion: 0, nickname: 'Protected Player' }),
+      headers: {
+        'content-type': 'application/json',
+        origin: 'https://attacker.example',
+        'x-requested-with': 'three-stone-web',
+      },
+      method: 'PATCH',
+    });
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'FORBIDDEN' },
+    });
+  });
+
   it('allows the client CSRF marker in an authenticated preflight', async () => {
     const response = await createApp(createTestDependencies()).request('/api/profile', {
       headers: {

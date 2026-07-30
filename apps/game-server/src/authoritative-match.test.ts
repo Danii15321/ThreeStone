@@ -13,6 +13,7 @@ import {
   type MatchConnection,
   type MatchDependencies,
 } from './authoritative-match.js';
+import { GameServerMetrics } from './game-server-metrics.js';
 
 const ROOM_ID = '7d34b06c-02a8-40e3-86ca-24e81cd0ff19';
 const GAME_ID = 'b8f16c4b-ed5c-43de-a679-ce0b4724a83c';
@@ -538,6 +539,35 @@ describe('AuthoritativeMatch', () => {
     expect(two.last<RoomSnapshot>('room.snapshot')).toMatchObject({
       winner: 'player-one',
       phase: 'finished',
+    });
+  });
+
+  it('acknowledges and broadcasts a terminal command even when persistence is unavailable', async () => {
+    const metrics = new GameServerMetrics();
+    const { match, one, two } = setup({
+      metrics,
+      resultRepository: {
+        async save() {
+          throw new Error('database unavailable');
+        },
+      },
+    });
+    await joinAndReady(match, one, two);
+
+    await finishGame(match, one, two);
+
+    expect(one.last<RoomSnapshot>('room.snapshot')).toMatchObject({
+      phase: 'finished',
+      winner: 'player-one',
+    });
+    expect(two.last<RoomSnapshot>('room.snapshot')).toMatchObject({
+      phase: 'finished',
+      winner: 'player-one',
+    });
+    expect(metrics.snapshot()).toMatchObject({
+      commandAcceptance: { count: 14 },
+      persistenceErrors: 1,
+      roomsFinished: 1,
     });
   });
 

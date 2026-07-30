@@ -4,12 +4,12 @@
 joueurs. Chaque joueur cherche à être le premier à se débarrasser de ses trois
 cailloux en devinant la somme cachée dans les deux mains.
 
-La **candidate v1 est jouable et vérifiée localement** : boucle solo complète,
-trois difficultés d'IA déterministes, compte par pseudonyme, profil personnalisable
-avec bio et avatar, historique, statistiques, préférences et suppression des données. Le client
-React/Vite utilise Phaser en Canvas pour le plateau ; l'API Hono s'appuie sur
-Better Auth, PostgreSQL et Drizzle. La v2 multijoueur reste volontairement
-absente du code.
+La **candidate v2 est jouable et vérifiée localement** : elle conserve la
+boucle solo et ajoute des salons privés à deux joueurs, un serveur Colyseus
+autoritaire, la reprise de connexion, les délais, la revanche, le score de
+session, les réactions contrôlées et l’historique partagé. Le client React/Vite
+utilise Phaser en Canvas ; l’API Hono et le serveur de jeu s’appuient sur Better
+Auth, PostgreSQL, Drizzle et des contrats Zod stricts.
 
 ## Démarrage local
 
@@ -25,8 +25,14 @@ pnpm db:migrate
 pnpm dev
 ```
 
-L'application web est disponible sur `http://localhost:5173` et la liveness de
-l'API sur `http://localhost:3001/api/health/live`.
+Pour le multijoueur, lancer dans un second terminal :
+
+```bash
+pnpm dev:game-server
+```
+
+L’application web est disponible sur `http://localhost:5173`, l’API sur
+`http://localhost:3001` et le serveur de jeu sur `ws://localhost:2567`.
 
 Commandes principales :
 
@@ -34,6 +40,8 @@ Commandes principales :
 pnpm check                 # format, lint, build, types et tests rapides
 TEST_DATABASE_URL="postgres://three_stone_game:local-development-only@localhost:5432/three_stone_game" pnpm test:integration
 pnpm test:e2e              # parcours Chromium, Firefox et WebKit
+pnpm test:multiplayer      # domaine autoritaire et serveur Colyseus
+pnpm test:load:multiplayer # 20 salons et 40 connexions
 pnpm db:generate           # génère une migration Drizzle
 pnpm db:migrate            # applique les migrations
 ```
@@ -50,8 +58,7 @@ Lors de la première utilisation de Playwright, installer ses moteurs avec
 - Livrer d'abord une expérience solo solide contre une IA.
 - Permettre au joueur de retrouver son profil, ses préférences et ses résultats
   grâce à un compte persistant dès la v1.
-- Préparer le moteur de règles pour un futur mode multijoueur en ligne, sans
-  alourdir inutilement la première version.
+- Proposer un mode multijoueur privé juste, sans exposer les choix cachés.
 - Fonctionner dans un navigateur moderne, sur ordinateur comme sur mobile.
 
 ## Règles de référence
@@ -137,8 +144,6 @@ L'interface doit notamment prévoir :
 - une séparation claire entre choix secret, pronostic, révélation et résultat ;
 - des animations courtes qui ne bloquent jamais la partie ;
 - un bouton permettant de passer ou d'accélérer les animations ;
-- des retours sonores courts sur les boutons de partie ;
-- un réglage du volume et un mode muet persistant ;
 - des commandes à la souris, au tactile et au clavier ;
 - des contrastes suffisants et une solution qui ne repose pas uniquement sur
   la couleur ;
@@ -152,8 +157,8 @@ L’accueil reste volontairement minimal : la devise « Art du bluff ou science
 de la déduction » apparaît sur le visuel des deux mains, avec uniquement les
 actions « Commencez une partie » et « Comment jouer ». Le lancement suit le
 parcours mode de jeu → difficulté → préparation de la table → partie. Le mode
-multijoueur est présenté comme une fonctionnalité v2 sans simuler de réseau.
-Audio, mouvements et contraste sont regroupés dans « Paramètres du jeu ».
+multijoueur ouvre un salon privé réel avec un code d’invitation. Mouvements et
+contraste sont regroupés dans « Paramètres du jeu ».
 
 ## Roadmap
 
@@ -198,7 +203,7 @@ Audio, mouvements et contraste sont regroupés dans « Paramètres du jeu ».
 - Éventuel mode local à deux joueurs si l'expérience de choix secret est
   satisfaisante sur un appareil partagé.
 
-### Version 2 — Multijoueur en ligne
+### Version 2 — Multijoueur privé — candidate vérifiée localement
 
 - Salons privés avec code d'invitation.
 - Serveur autoritaire : le client propose une action, le serveur la valide et
@@ -217,7 +222,7 @@ produit séparée.
 ## Stack technique retenue
 
 Cette stack privilégie une application web légère et un langage commun au
-client, à l'IA et au futur serveur.
+client, à l’IA et au serveur autoritaire.
 
 | Besoin | Choix recommandé | Pourquoi |
 | --- | --- | --- |
@@ -237,12 +242,12 @@ client, à l'IA et au futur serveur.
 | Tests navigateur | Playwright | Parcours complets sur plusieurs moteurs de navigateur |
 | Multijoueur v2 | Colyseus sur Node.js | Salons, serveur autoritaire et synchronisation d'état adaptés au jeu |
 | Stockage navigateur | `localStorage` non sensible | Préférences utilisables avant connexion ; jamais de session ou secret de jeu |
-| Cache distribué | Aucun en v1 ; Redis si nécessaire en v2 | À ajouter seulement pour plusieurs instances ou une présence distribuée |
+| Cache distribué | Aucun ; Redis seulement en v2+ si nécessaire | À ajouter uniquement avec plusieurs instances ou une présence distribuée |
 
 Phaser fournit officiellement des modèles React + Vite en TypeScript. Better
-Auth fournit une intégration Hono et un adaptateur Drizzle. Colyseus est proposé
-seulement pour la v2 : son modèle où le serveur est seul à modifier l'état
-partagé correspond bien aux informations cachées de ce jeu.
+Auth fournit une intégration Hono et un adaptateur Drizzle. Colyseus porte la
+v2 : son modèle où le serveur est seul à modifier l’état partagé correspond aux
+informations cachées du jeu.
 
 Références :
 
@@ -313,21 +318,19 @@ Principes structurants :
 
 ### Organisation du dépôt
 
-La v1 matérialise les applications et packages ci-dessous. Les
-modules `game-server` et `protocol` restent volontairement absents jusqu'à
-l'ouverture explicite de la v2 :
+La v2 matérialise les applications et packages ci-dessous :
 
 ```text
 apps/
   web/                 Application React, plateau Phaser Canvas et parcours E2E
   api/                 API Hono, authentification et cas d'usage persistants
-  game-server/         Serveur multijoueur ajouté seulement en v2
+  game-server/         Serveur multijoueur Colyseus autoritaire
 packages/
   game-core/           Règles, états, actions, événements et invariants
   game-ai/             Stratégies de l'ordinateur
   api-contracts/       Schémas d'entrée/sortie partagés, sans logique métier
   database/            Schéma Drizzle, migrations SQL et accès serveur uniquement
-  protocol/            Messages réseau et état public, ajouté en v2
+  protocol/            Messages réseau, projections publiques et privées
   test-support/        Générateurs et scénarios partagés de test
 docs/
   ARCHITECTURE.md      Architecture logique, données, sécurité et déploiement
