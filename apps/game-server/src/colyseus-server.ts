@@ -8,6 +8,7 @@ import {
   type Server,
 } from '@colyseus/core';
 import { WebSocketTransport } from '@colyseus/ws-transport';
+import type { Application } from 'express';
 import { z } from 'zod';
 
 import {
@@ -16,6 +17,10 @@ import {
   type MatchConnection,
   type MatchDependencies,
 } from './authoritative-match.js';
+import {
+  configureInternalAdmissionHttp,
+  type InternalAdmissionHttpOptions,
+} from './internal-admission-http.js';
 
 export const GAME_ROOM_TYPE = 'three_stone';
 
@@ -39,6 +44,7 @@ export interface ThreeStoneRoom extends Room {
 }
 
 export interface GameServerOptions {
+  readonly internalAdmission?: InternalAdmissionHttpOptions;
   readonly isReady: () => boolean | Promise<boolean>;
   readonly matchDependencies: MatchDependencies;
 }
@@ -55,14 +61,21 @@ export function createGameServer(options: GameServerOptions): Server {
       pingMaxRetries: 3,
     }),
     express: (app) => {
-      app.get('/health/live', (_request, response) => {
-        response.status(200).json({ status: 'ok' });
-      });
-      app.get('/health/ready', async (_request, response) => {
-        const ready = await options.isReady();
-        response.status(ready ? 200 : 503).json({ status: ready ? 'ready' : 'unavailable' });
-      });
+      if (options.internalAdmission !== undefined) {
+        configureInternalAdmissionHttp(app, options.internalAdmission);
+      }
+      configureHealthRoutes(app, options.isReady);
     },
+  });
+}
+
+function configureHealthRoutes(app: Application, isReady: () => boolean | Promise<boolean>): void {
+  app.get('/health/live', (_request, response) => {
+    response.status(200).json({ status: 'ok' });
+  });
+  app.get('/health/ready', async (_request, response) => {
+    const ready = await isReady();
+    response.status(ready ? 200 : 503).json({ status: ready ? 'ready' : 'unavailable' });
   });
 }
 

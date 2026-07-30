@@ -11,6 +11,15 @@ export {
   type ReadinessResponse,
 } from './health.js';
 export {
+  createMultiplayerRoomResponseSchema,
+  joinMultiplayerRoomRequestSchema,
+  joinMultiplayerRoomResponseSchema,
+  multiplayerInviteCodeSchema,
+  type CreateMultiplayerRoomResponse,
+  type JoinMultiplayerRoomRequest,
+  type JoinMultiplayerRoomResponse,
+} from './multiplayer.js';
+export {
   nicknameSchema,
   playerBioSchema,
   playerProfileSchema,

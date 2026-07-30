@@ -3,6 +3,8 @@ import {
   apiErrorResponseSchema,
   createSoloResultRequestSchema,
   healthResponseSchema,
+  joinMultiplayerRoomRequestSchema,
+  joinMultiplayerRoomResponseSchema,
   playerPreferencesSchema,
   playerProfileSchema,
   readinessResponseSchema,
@@ -12,6 +14,7 @@ import {
   soloStatsSchema,
   updatePlayerPreferencesRequestSchema,
   updatePlayerProfileRequestSchema,
+  createMultiplayerRoomResponseSchema,
   type AccountMetadata,
   type ApiErrorCode,
 } from '@three-stone/api-contracts';
@@ -27,6 +30,10 @@ import { z, ZodError, type ZodType } from 'zod';
 
 import type { AccountExportService } from './application/account-export-service.js';
 import { AvatarValidationError, MAX_AVATAR_BYTES } from './application/avatar-image.js';
+import {
+  RoomUnavailableError,
+  type MultiplayerAdmissionService,
+} from './application/multiplayer-admission-service.js';
 import type { ProfileService } from './application/profile-service.js';
 import type { SoloResultsService } from './application/solo-results-service.js';
 import type { AuthGateway } from './auth/auth-gateway.js';
@@ -47,6 +54,8 @@ export interface ApiDependencies {
   authGateway: AuthGateway;
   authRateLimiter: RateLimiter;
   maxRequestBodyBytes: number;
+  multiplayerAdmissionService: Pick<MultiplayerAdmissionService, 'create' | 'join' | 'refresh'>;
+  multiplayerRateLimiter: RateLimiter;
   profileService: ProfileService;
   readinessProbe: () => Promise<boolean>;
   resultsService: SoloResultsService;
@@ -135,6 +144,7 @@ export function createApp(dependencies?: ApiDependencies) {
     app.use('/api/profile', authenticate(dependencies.authGateway));
     app.use('/api/profile/*', authenticate(dependencies.authGateway));
     app.use('/api/preferences', authenticate(dependencies.authGateway));
+    app.use('/api/multiplayer/*', authenticate(dependencies.authGateway));
     app.use('/api/results/*', authenticate(dependencies.authGateway));
     app.use('/api/stats/*', authenticate(dependencies.authGateway));
 
@@ -165,6 +175,47 @@ export function createApp(dependencies?: ApiDependencies) {
       return dependencies.authGateway.handle(context.req.raw);
     });
     app.get('/api/auth/*', (context) => dependencies.authGateway.handle(context.req.raw));
+
+    app.on('POST', '/api/multiplayer/*', async (context, next) => {
+      const networkAllowed = dependencies.multiplayerRateLimiter.consume(
+        `network:${clientKey(context)}`,
+      );
+      const accountAllowed = dependencies.multiplayerRateLimiter.consume(
+        `account:${context.get('userId')}`,
+      );
+      if (!networkAllowed || !accountAllowed) {
+        return errorResponse(
+          context,
+          429,
+          'RATE_LIMITED',
+          'Trop de tentatives multijoueurs. Réessayez plus tard.',
+        );
+      }
+      await next();
+    });
+
+    app.post('/api/multiplayer/rooms', async (context) => {
+      const admission = await dependencies.multiplayerAdmissionService.create(
+        context.get('account'),
+      );
+      return context.json(createMultiplayerRoomResponseSchema.parse(admission), 201);
+    });
+    app.post('/api/multiplayer/join', async (context) => {
+      const input = await parseJson(context, joinMultiplayerRoomRequestSchema);
+      const admission = await dependencies.multiplayerAdmissionService.join(
+        context.get('account'),
+        input.code,
+      );
+      return context.json(joinMultiplayerRoomResponseSchema.parse(admission));
+    });
+    app.post('/api/multiplayer/rooms/:roomId/ticket', async (context) => {
+      const roomId = z.uuid().parse(context.req.param('roomId'));
+      const admission = await dependencies.multiplayerAdmissionService.refresh(
+        context.get('account'),
+        roomId,
+      );
+      return context.json(joinMultiplayerRoomResponseSchema.parse(admission));
+    });
 
     app.get('/api/health/ready', async (context) => {
       const ready = await dependencies.readinessProbe().catch(() => false);
@@ -283,6 +334,9 @@ export function createApp(dependencies?: ApiDependencies) {
     }
     if (error instanceof ConflictError) {
       return errorResponse(context, 409, 'CONFLICT', error.message);
+    }
+    if (error instanceof RoomUnavailableError) {
+      return errorResponse(context, 409, 'ROOM_UNAVAILABLE', error.message);
     }
     if (error instanceof AvatarValidationError) {
       return errorResponse(context, 422, 'VALIDATION_ERROR', error.message);

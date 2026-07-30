@@ -147,6 +147,18 @@ export function createTestDependencies(
     authGateway,
     authRateLimiter: new FixedWindowRateLimiter(options.authRateLimit ?? 10, 60_000),
     maxRequestBodyBytes: 32_768,
+    multiplayerAdmissionService: {
+      create: async () => {
+        throw new Error('Unexpected multiplayer create call in this test.');
+      },
+      join: async () => {
+        throw new Error('Unexpected multiplayer join call in this test.');
+      },
+      refresh: async () => {
+        throw new Error('Unexpected multiplayer refresh call in this test.');
+      },
+    },
+    multiplayerRateLimiter: new FixedWindowRateLimiter(30, 60_000),
     profileService,
     readinessProbe: async () => true,
     resultsService,

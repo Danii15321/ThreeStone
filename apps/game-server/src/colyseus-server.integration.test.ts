@@ -1,12 +1,17 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { boot, type ColyseusTestServer } from '@colyseus/testing';
+import { randomUUID } from 'node:crypto';
 
 import type { AdmissionIdentity, MatchDependencies } from './authoritative-match.js';
+import { AdmissionRegistry } from './admission-registry.js';
 import { GAME_ROOM_TYPE, createGameServer, type ThreeStoneRoom } from './colyseus-server.js';
 
 const ROOM_ID = 'a4e97166-e9e0-49cf-8812-96be1f59687a';
 const GAME_ID = 'dce9bd39-d4d2-431d-ad54-a959a42c983d';
+const INTERNAL_ROOM_ID = 'bb1807f5-287e-46d9-968c-31495427648a';
+const INTERNAL_GAME_ID = 'da191e81-2f2e-4839-975c-909a39be1187';
+const INTERNAL_SECRET = 'internal-game-server-test-secret-32-bytes';
 
 function identity(userId: string, playerId: 'player-one' | 'player-two'): AdmissionIdentity {
   return {
@@ -40,10 +45,21 @@ describe('Colyseus game server', () => {
       return found?.roomId === expectedRoomId ? found : null;
     },
   };
+  const registry = new AdmissionRegistry({
+    clock: () => 1_775_000_000_000,
+    createReservationId: randomUUID,
+    firstSeat: () => 'player-one',
+    serverInstanceId: 'game-server-test',
+    waitingRoomLifetimeMs: 60_000,
+  });
 
   beforeAll(async () => {
     server = await boot(
       createGameServer({
+        internalAdmission: {
+          registry,
+          secret: INTERNAL_SECRET,
+        },
         isReady: () => ready,
         matchDependencies: dependencies,
       }),
@@ -68,6 +84,71 @@ describe('Colyseus game server', () => {
       statusCode: 503,
     });
     ready = true;
+  });
+
+  it('authenticates the internal room reservation channel without exposing codes', async () => {
+    const createBody = {
+      creatorUserId: 'internal-creator',
+      gameId: INTERNAL_GAME_ID,
+      inviteCodeHash: 'c'.repeat(64),
+      leaseToken: 'creator-lease-token-with-high-entropy',
+      roomId: INTERNAL_ROOM_ID,
+      seed: 73,
+    };
+    await expect(
+      server.http.post('/internal/v1/rooms', {
+        body: createBody,
+        headers: {
+          'content-type': 'application/json',
+          'x-game-server-secret': 'wrong-secret-that-is-long-enough',
+        },
+      }),
+    ).rejects.toMatchObject({ statusCode: 401 });
+
+    await expect(
+      server.http.post('/internal/v1/rooms', {
+        body: createBody,
+        headers: {
+          'content-type': 'application/json',
+          'x-game-server-secret': INTERNAL_SECRET,
+        },
+      }),
+    ).resolves.toMatchObject({
+      statusCode: 201,
+      data: {
+        playerId: 'player-one',
+        roomId: INTERNAL_ROOM_ID,
+      },
+    });
+    await expect(
+      server.http.post('/internal/v1/rooms/reserve', {
+        body: {
+          inviteCodeHash: 'c'.repeat(64),
+          leaseToken: 'joiner-lease-token-with-high-entropy',
+          userId: 'internal-joiner',
+        },
+        headers: {
+          'content-type': 'application/json',
+          'x-game-server-secret': INTERNAL_SECRET,
+        },
+      }),
+    ).resolves.toMatchObject({
+      statusCode: 200,
+      data: { playerId: 'player-two' },
+    });
+    await expect(
+      server.http.post('/internal/v1/rooms/reserve', {
+        body: {
+          inviteCodeHash: 'c'.repeat(64),
+          leaseToken: 'third-lease-token-with-high-entropy',
+          userId: 'internal-third',
+        },
+        headers: {
+          'content-type': 'application/json',
+          'x-game-server-secret': INTERNAL_SECRET,
+        },
+      }),
+    ).rejects.toMatchObject({ statusCode: 409 });
   });
 
   it('lets two authenticated Colyseus clients finish one authoritative game', async () => {

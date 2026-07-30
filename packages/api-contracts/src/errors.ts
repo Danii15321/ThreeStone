@@ -8,6 +8,7 @@ export const apiErrorCodeSchema = z.enum([
   'NOT_FOUND',
   'PAYLOAD_TOO_LARGE',
   'RATE_LIMITED',
+  'ROOM_UNAVAILABLE',
   'SERVICE_UNAVAILABLE',
   'VALIDATION_ERROR',
 ]);

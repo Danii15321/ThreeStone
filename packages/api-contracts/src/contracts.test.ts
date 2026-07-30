@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   accountMetadataSchema,
+  createMultiplayerRoomResponseSchema,
   createSoloResultRequestSchema,
+  joinMultiplayerRoomRequestSchema,
   updatePlayerPreferencesRequestSchema,
   updatePlayerProfileRequestSchema,
 } from './index.js';
@@ -108,5 +110,22 @@ describe('public API contracts', () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it('normalizes non-ambiguous invite codes and keeps tickets in response bodies', () => {
+    expect(joinMultiplayerRoomRequestSchema.parse({ code: ' abcd23 ' })).toEqual({
+      code: 'ABCD23',
+    });
+    expect(joinMultiplayerRoomRequestSchema.safeParse({ code: 'ROOM01' }).success).toBe(false);
+    expect(
+      createMultiplayerRoomResponseSchema.parse({
+        gameServerUrl: 'ws://127.0.0.1:2567',
+        inviteCode: 'ABCD23',
+        playerId: 'player-one',
+        roomId: 'a4e97166-e9e0-49cf-8812-96be1f59687a',
+        ticket: 'signed-admission-ticket-that-is-long-enough',
+        ticketExpiresAt: '2026-07-30T15:00:45.000Z',
+      }),
+    ).not.toHaveProperty('ticketUrl');
   });
 });

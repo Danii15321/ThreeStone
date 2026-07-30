@@ -9,6 +9,7 @@ const MAX_CLOCK_SKEW_MS = 5_000;
 const MIN_SECRET_BYTES = 32;
 
 const admissionTicketPayloadSchema = z.strictObject({
+  action: z.literal('join-room'),
   avatarUrl: z.string().max(2_048).nullable(),
   connectionGeneration: z.number().int().positive(),
   expiresAt: z.number().int().positive(),
@@ -42,6 +43,7 @@ export function issueAdmissionTicket(claims: AdmissionTicketClaims, secret: stri
   assertSecret(secret);
   const payload = admissionTicketPayloadSchema.parse({
     ...claims,
+    action: 'join-room',
     protocolVersion: PROTOCOL_VERSION,
     purpose: 'multiplayer-admission',
   });

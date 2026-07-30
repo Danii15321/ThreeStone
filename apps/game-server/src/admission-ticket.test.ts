@@ -21,6 +21,18 @@ function claims() {
 }
 
 describe('multiplayer admission ticket', () => {
+  it('binds the signed payload to the room admission action', () => {
+    const ticket = issueAdmissionTicket(claims(), SECRET);
+    const encodedPayload = ticket.split('.')[0] ?? '';
+    const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8'));
+
+    expect(payload).toMatchObject({
+      action: 'join-room',
+      purpose: 'multiplayer-admission',
+      roomId: ROOM_ID,
+    });
+  });
+
   it('is bound to one room, expires and is consumed exactly once', async () => {
     const verifier = new HmacAdmissionTicketVerifier(SECRET, () => NOW);
     const ticket = issueAdmissionTicket(claims(), SECRET);
