@@ -2,22 +2,26 @@
   position: relative;
   overflow: hidden;
   width: 100%;
+  aspect-ratio: 16 / 9;
   border: 1px solid #9c6b42;
   border-radius: 1rem;
   background: #201612;
   box-shadow:
     var(--shadow-inset),
     0 1.25rem 3rem rgb(0 0 0 / 32%);
+  contain: layout paint;
 }
 
 .canvasHost {
-  aspect-ratio: 16 / 9;
-  width: 100%;
+  position: absolute;
+  inset: 0;
   background: radial-gradient(circle at center, #493126, #1c1411 72%);
 }
 
 .canvasHost canvas {
+  position: absolute;
+  inset: 0;
   display: block;
-  width: 100%;
-  max-width: 100%;
+  width: 100% !important;
+  height: 100% !important;
 }
