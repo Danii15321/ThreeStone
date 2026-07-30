@@ -137,6 +137,15 @@ importers:
 
   packages/game-core: {}
 
+  packages/protocol:
+    dependencies:
+      '@three-stone/game-core':
+        specifier: workspace:*
+        version: link:../game-core
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+
   packages/test-support:
     dependencies:
       '@three-stone/game-core':

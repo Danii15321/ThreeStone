@@ -1,0 +1,112 @@
+import { describe, expect, it } from 'vitest';
+
+import { applyGameAction, createGame, type GameState } from '@three-stone/game-core';
+
+import {
+  MAX_CLIENT_MESSAGE_BYTES,
+  PROTOCOL_VERSION,
+  clientCommandSchema,
+  createCommandAccepted,
+  createPublicSnapshot,
+  createSeatObservation,
+  roomSnapshotSchema,
+  seatObservationSchema,
+  type SnapshotContext,
+} from './index.js';
+
+const context: SnapshotContext = {
+  roomId: 'room-0001',
+  sequence: 4,
+  serverNow: 1_000,
+  actionDeadline: 31_000,
+  sessionScore: { 'player-one': 0, 'player-two': 0 },
+  players: {
+    'player-one': {
+      avatarUrl: '/api/profile/avatar/player-one',
+      connected: true,
+      username: 'Astrid',
+    },
+    'player-two': {
+      avatarUrl: null,
+      connected: true,
+      username: 'Bjorn',
+    },
+  },
+};
+
+function choose(state: GameState, playerId: 'player-one' | 'player-two', count: number): GameState {
+  const result = applyGameAction(state, { type: 'choose-hidden', playerId, count });
+  if (!result.ok) {
+    throw new Error(result.error.code);
+  }
+  return result.state;
+}
+
+describe('client commands', () => {
+  it('validates the versioned command union and strips no unknown fields', () => {
+    const valid = {
+      protocolVersion: PROTOCOL_VERSION,
+      type: 'round.choose',
+      commandId: '018f47f2-8ee2-7e00-8000-000000000001',
+      roomId: 'room-0001',
+      knownSequence: 3,
+      payload: { count: 2 },
+    };
+
+    expect(clientCommandSchema.safeParse(valid).success).toBe(true);
+    expect(
+      clientCommandSchema.safeParse({
+        ...valid,
+        payload: { count: 2, leaked: true },
+      }).success,
+    ).toBe(false);
+    expect(clientCommandSchema.safeParse({ ...valid, protocolVersion: 1 }).success).toBe(false);
+    expect(clientCommandSchema.safeParse({ ...valid, payload: { count: 4 } }).success).toBe(false);
+  });
+
+  it('publishes a strict client message size budget', () => {
+    expect(MAX_CLIENT_MESSAGE_BYTES).toBe(1_024);
+  });
+});
+
+describe('public and private projections', () => {
+  it('omits every hidden choice and submission tell from the public snapshot', () => {
+    const state = choose(
+      createGame({ gameId: 'game-001', seed: 2, sequenceNumber: 1 }).state,
+      'player-one',
+      3,
+    );
+    const snapshot = createPublicSnapshot(state, context);
+    const serialized = JSON.stringify(snapshot);
+
+    expect(roomSnapshotSchema.safeParse(snapshot).success).toBe(true);
+    expect(Object.hasOwn(snapshot, 'choicesReceived')).toBe(false);
+    expect(serialized).not.toContain('hiddenChoice');
+    expect(serialized).not.toContain('choicesReceived');
+    expect(serialized).not.toContain('"count":3');
+  });
+
+  it('gives only the receiving seat its own accepted choice', () => {
+    const state = choose(
+      createGame({ gameId: 'game-001', seed: 2, sequenceNumber: 1 }).state,
+      'player-one',
+      3,
+    );
+    const owner = createSeatObservation(state, 'player-one', context.sequence);
+    const opponent = createSeatObservation(state, 'player-two', context.sequence);
+
+    expect(seatObservationSchema.safeParse(owner).success).toBe(true);
+    expect(owner).toHaveProperty('ownHiddenChoice', 3);
+    expect(Object.hasOwn(opponent, 'ownHiddenChoice')).toBe(false);
+    expect(JSON.stringify(opponent)).not.toContain('3');
+  });
+
+  it('keeps the accepted acknowledgement independent from the chosen value', () => {
+    const zero = JSON.stringify(createCommandAccepted('cmd-00001', 5));
+    const three = JSON.stringify(createCommandAccepted('cmd-00002', 5));
+
+    expect(zero.length).toBe(three.length);
+    expect(zero).not.toContain('choice');
+    expect(three).not.toContain('choice');
+  });
+});
