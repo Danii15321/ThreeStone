@@ -26,12 +26,17 @@ class FakeClock {
 }
 
 class FakeConnection implements MatchConnection {
+  closed = false;
   readonly messages: SentMessage[] = [];
 
   constructor(readonly connectionId: string) {}
 
   send(type: string, payload: unknown): void {
     this.messages.push({ type, payload });
+  }
+
+  close(): void {
+    this.closed = true;
   }
 
   last<T>(type: string): T {
@@ -58,7 +63,7 @@ function identity(
   };
 }
 
-function setup() {
+function setup(overrides: Partial<MatchDependencies> = {}) {
   const clock = new FakeClock();
   const tickets = new Map<string, AdmissionIdentity>([
     ['ticket-one', identity('user-one', 'player-one')],
@@ -67,8 +72,20 @@ function setup() {
     ['ticket-one-generation-two', identity('user-one', 'player-one', 2)],
   ]);
   const saved: unknown[] = [];
+  let resumeTokenNumber = 0;
   const dependencies: MatchDependencies = {
     clock,
+    createResumeToken() {
+      resumeTokenNumber += 1;
+      return `resume-token-${resumeTokenNumber}`.padEnd(43, '0');
+    },
+    deadlines: {
+      disconnectBudgetMs: 120_000,
+      disconnectGraceMs: 60_000,
+      hiddenChoiceMs: 30_000,
+      predictionMs: 20_000,
+      resumeTokenLifetimeMs: 6 * 60 * 60 * 1_000,
+    },
     resultRepository: {
       async save(input) {
         saved.push(input);
@@ -82,6 +99,10 @@ function setup() {
       }
       return value;
     },
+    schedule() {
+      return () => undefined;
+    },
+    ...overrides,
   };
   const match = new AuthoritativeMatch(
     {
@@ -103,6 +124,8 @@ async function joinAndReady(
 ): Promise<void> {
   await expect(match.join(one, 'ticket-one')).resolves.toMatchObject({ ok: true });
   await expect(match.join(two, 'ticket-two')).resolves.toMatchObject({ ok: true });
+  expect(match.syncConnection(one.connectionId)).toBe(true);
+  expect(match.syncConnection(two.connectionId)).toBe(true);
   await accepted(match, one, {
     type: 'room.ready',
     payload: { ready: true },
@@ -147,6 +170,187 @@ async function accepted(
 }
 
 describe('AuthoritativeMatch', () => {
+  it('atomically cancels a hidden-choice deadline when neither player submitted', async () => {
+    const { clock, match, one, saved, two } = setup();
+    await joinAndReady(match, one, two);
+
+    expect(one.last<RoomSnapshot>('room.snapshot').actionDeadline).toBe(clock.now() + 30_000);
+    clock.nowMs += 30_000;
+    await match.tick();
+
+    expect(match.state).toMatchObject({
+      phase: 'cancelled',
+      terminalReason: 'both-hidden-choice-timeout',
+      winner: null,
+    });
+    expect(saved).toHaveLength(0);
+  });
+
+  it('keeps an action deadline running through disconnection and awards the timeout', async () => {
+    const { clock, match, one, saved, two } = setup();
+    await joinAndReady(match, one, two);
+    await accepted(match, one, { type: 'round.choose', payload: { count: 1 } });
+
+    clock.nowMs += 27_000;
+    match.leave(two.connectionId);
+    clock.nowMs += 3_000;
+    await match.tick();
+
+    expect(match.state).toMatchObject({
+      phase: 'finished',
+      terminalReason: 'hidden-choice-timeout',
+      winner: 'player-one',
+    });
+    expect(saved).toHaveLength(1);
+  });
+
+  it('rejects a command received after its deadline even before the timer callback runs', async () => {
+    const { clock, match, one, two } = setup();
+    await joinAndReady(match, one, two);
+    await accepted(match, one, { type: 'round.choose', payload: { count: 1 } });
+    const sequenceBeforeDeadline = match.sequence;
+    clock.nowMs += 30_000;
+
+    const late = await match.receive(two.connectionId, {
+      commandId: 'late-hidden-choice',
+      knownSequence: sequenceBeforeDeadline,
+      payload: { count: 1 },
+      protocolVersion: 2,
+      roomId: ROOM_ID,
+      type: 'round.choose',
+    });
+
+    expect(late).toMatchObject({
+      type: 'command.rejected',
+      error: { code: 'SEQUENCE_STALE' },
+    });
+    expect(match.state).toMatchObject({
+      phase: 'finished',
+      terminalReason: 'hidden-choice-timeout',
+      winner: 'player-one',
+    });
+  });
+
+  it('does not let a player pause a started game by withdrawing ready state', async () => {
+    const { match, one, two } = setup();
+    await joinAndReady(match, one, two);
+    const sequence = match.sequence;
+
+    const response = await match.receive(one.connectionId, {
+      commandId: 'withdraw-ready-after-start',
+      knownSequence: sequence,
+      payload: { ready: false },
+      protocolVersion: 2,
+      roomId: ROOM_ID,
+      type: 'room.ready',
+    });
+
+    expect(response).toMatchObject({
+      type: 'command.rejected',
+      error: { code: 'WRONG_PHASE' },
+    });
+    expect(match.sequence).toBe(sequence);
+    expect(one.last<RoomSnapshot>('room.snapshot').actionDeadline).not.toBeNull();
+  });
+
+  it('uses disconnect grace only when the absent seat has no action due', async () => {
+    const { clock, match, one, two } = setup();
+    await joinAndReady(match, one, two);
+    await accepted(match, one, { type: 'round.choose', payload: { count: 1 } });
+    await accepted(match, two, { type: 'round.choose', payload: { count: 1 } });
+
+    match.leave(two.connectionId);
+    clock.nowMs += 19_999;
+    await match.tick();
+    expect(match.state.phase).toBe('first-prediction');
+
+    clock.nowMs += 1;
+    await match.tick();
+    expect(match.state).toMatchObject({
+      phase: 'finished',
+      terminalReason: 'prediction-timeout',
+      winner: 'player-two',
+    });
+  });
+
+  it('resumes directly with a one-use rotating token and invalidates the old generation', async () => {
+    const { match, one, two } = setup();
+    await joinAndReady(match, one, two);
+    const firstToken = one.last<{ token: string }>('room.resume-token').token;
+    match.leave(one.connectionId);
+
+    const resumedIdentity = match.consumeResumeToken(firstToken);
+    expect(resumedIdentity).toMatchObject({
+      connectionGeneration: 2,
+      playerId: 'player-one',
+      userId: 'user-one',
+    });
+    expect(match.consumeResumeToken(firstToken)).toBeNull();
+
+    const replacement = new FakeConnection('connection-one-resumed');
+    expect(match.joinIdentity(replacement, resumedIdentity!)).toMatchObject({ ok: true });
+    expect(match.syncConnection(replacement.connectionId)).toBe(true);
+    const rotatedToken = replacement.last<{ token: string }>('room.resume-token').token;
+    expect(rotatedToken).not.toBe(firstToken);
+
+    const newerIdentity = match.consumeResumeToken(rotatedToken);
+    const newest = new FakeConnection('connection-one-newest');
+    expect(match.joinIdentity(newest, newerIdentity!)).toMatchObject({ ok: true });
+    expect(replacement.closed).toBe(true);
+  });
+
+  it('enforces the cumulative reconnect budget across rotated tokens', async () => {
+    const { clock, match, one, two } = setup();
+    await expect(match.join(one, 'ticket-one')).resolves.toMatchObject({ ok: true });
+    await expect(match.join(two, 'ticket-two')).resolves.toMatchObject({ ok: true });
+    match.syncConnection(one.connectionId);
+    let token = one.last<{ token: string }>('room.resume-token').token;
+    let current = one;
+
+    for (const absence of [50_000, 59_000]) {
+      match.leave(current.connectionId);
+      clock.nowMs += absence;
+      const resumed = match.consumeResumeToken(token);
+      expect(resumed).not.toBeNull();
+      current = new FakeConnection(`resumed-after-${absence}`);
+      expect(match.joinIdentity(current, resumed!)).toMatchObject({ ok: true });
+      match.syncConnection(current.connectionId);
+      token = current.last<{ token: string }>('room.resume-token').token;
+    }
+
+    match.leave(current.connectionId);
+    clock.nowMs += 10_999;
+    await match.tick();
+    expect(match.state.phase).toBe('hidden-choices');
+
+    clock.nowMs += 1;
+    await match.tick();
+    expect(match.state).toMatchObject({
+      phase: 'finished',
+      terminalReason: 'disconnect',
+      winner: 'player-two',
+    });
+  });
+
+  it('cancels without a winner when the active room lease is definitively lost', async () => {
+    const { match, one, saved, two } = setup({
+      leaseHeartbeat: {
+        check: async () => 'lost',
+        intervalMs: 30_000,
+      },
+    });
+    await joinAndReady(match, one, two);
+
+    await match.checkLease();
+
+    expect(match.state).toMatchObject({
+      phase: 'cancelled',
+      terminalReason: 'technical-cancellation',
+      winner: null,
+    });
+    expect(saved).toHaveLength(0);
+  });
+
   it('admits exactly two authenticated seats and rejects a third identity', async () => {
     const { match, one, two } = setup();
     const third = new FakeConnection('connection-three');

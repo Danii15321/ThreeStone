@@ -20,7 +20,14 @@ export type {
 export {
   createPublicSnapshot,
   createSeatObservation,
+  roomResumeTokenSchema,
   roomSnapshotSchema,
   seatObservationSchema,
 } from './snapshots.js';
-export type { PublicPlayer, RoomSnapshot, SeatObservation, SnapshotContext } from './snapshots.js';
+export type {
+  PublicPlayer,
+  RoomResumeToken,
+  RoomSnapshot,
+  SeatObservation,
+  SnapshotContext,
+} from './snapshots.js';

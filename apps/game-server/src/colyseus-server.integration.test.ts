@@ -30,6 +30,7 @@ function identity(userId: string, playerId: 'player-one' | 'player-two'): Admiss
 describe('Colyseus game server', () => {
   let server: ColyseusTestServer;
   let ready = true;
+  let ticketVerificationAvailable = true;
   const saved: unknown[] = [];
   const tickets = new Map<string, AdmissionIdentity>([
     ['network-ticket-one', identity('network-user-one', 'player-one')],
@@ -45,6 +46,9 @@ describe('Colyseus game server', () => {
       },
     },
     async verifyAdmissionTicket(ticket, expectedRoomId) {
+      if (!ticketVerificationAvailable) {
+        return null;
+      }
       const found = tickets.get(ticket);
       return found?.roomId === expectedRoomId ? found : hmacVerifier.verify(ticket, expectedRoomId);
     },
@@ -95,6 +99,7 @@ describe('Colyseus game server', () => {
       creatorUserId: 'internal-creator',
       gameId: INTERNAL_GAME_ID,
       inviteCodeHash: 'c'.repeat(64),
+      leaseExpiresAt: NOW + 120_000,
       leaseToken: 'creator-lease-token-with-high-entropy',
       roomId: INTERNAL_ROOM_ID,
       seed: 73,
@@ -126,6 +131,7 @@ describe('Colyseus game server', () => {
     const joinerReservation = await server.http.post('/internal/v1/rooms/reserve', {
       body: {
         inviteCodeHash: 'c'.repeat(64),
+        leaseExpiresAt: NOW + 120_000,
         leaseToken: 'joiner-lease-token-with-high-entropy',
         userId: 'internal-joiner',
       },
@@ -172,6 +178,7 @@ describe('Colyseus game server', () => {
       server.http.post('/internal/v1/rooms/reserve', {
         body: {
           inviteCodeHash: 'c'.repeat(64),
+          leaseExpiresAt: NOW + 120_000,
           leaseToken: 'third-lease-token-with-high-entropy',
           userId: 'internal-third',
         },
@@ -191,9 +198,18 @@ describe('Colyseus game server', () => {
       roomId: ROOM_ID,
       seed: 71,
     });
-    const one = await server.connectTo(room, { ticket: 'network-ticket-one' });
+    const initialOne = await server.connectTo(room, { ticket: 'network-ticket-one' });
+    const firstResumeToken = initialOne.waitForMessage('room.resume-token');
+    initialOne.send('sync', { protocolVersion: 2 });
+    const resumeToken = (await firstResumeToken) as { readonly token: string };
+    await initialOne.leave();
+    ticketVerificationAvailable = false;
+    const one = await server.connectTo(room, { resumeToken: resumeToken.token });
+    ticketVerificationAvailable = true;
     one.onMessage('room.snapshot', () => undefined);
     one.onMessage('seat.observation', () => undefined);
+    one.onMessage('room.resume-token', () => undefined);
+    one.send('sync', { protocolVersion: 2 });
     const two = await server.connectTo(room, { ticket: 'network-ticket-two' });
     two.onMessage('room.snapshot', () => undefined);
     two.onMessage('seat.observation', () => undefined);

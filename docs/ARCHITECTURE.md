@@ -758,6 +758,20 @@ validé.
 - Politique documentée pour les salles actives lors d'un déploiement.
 - Persistance du résultat retentable et idempotente.
 
+### Comportement v2 face aux pannes
+
+| Incident | Partie active | Admission et reprise | Résultat persistant |
+| --- | --- | --- | --- |
+| Coupure réseau d'un joueur | Le délai de son action continue. La grâce est de 60 s, dans un budget cumulé de 120 s. | Reprise directe auprès du game-server avec un jeton en mémoire, rotatif et à usage unique. | Défaite seulement si le délai d'action ou la grâce expire ; aucune pénalité pour une reprise à temps. |
+| API Hono indisponible | Les salons déjà ouverts continuent. | Aucune nouvelle admission ; une reprise transitoire reste possible sans l'API. | Aucun résultat artificiel. |
+| PostgreSQL momentanément indisponible | Le salon continue jusqu'à la dernière expiration de bail prouvée. | Les admissions dépendantes de la base échouent proprement. | Le résultat est retentable ; une perte définitive du bail annule sans gagnant. |
+| Crash du game-server | L'état en mémoire est perdu et la partie ne peut pas continuer. | Le bail orphelin expire au plus tard après 120 s. | Aucun faux gagnant ni fausse défaite n'est écrit. |
+| Arrêt technique maîtrisé ou perte définitive du bail | Le salon est annulé et cesse d'accepter des commandes. | Les jetons de reprise deviennent inutilisables. | Annulation technique sans gagnant. |
+
+Une commande reçue après son échéance est refusée même si le rappel du minuteur
+a été retardé par la boucle d'événements : le serveur vérifie toujours l'horloge
+avant d'appliquer la commande.
+
 ## Observabilité
 
 ### Logs

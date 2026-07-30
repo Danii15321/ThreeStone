@@ -11,6 +11,9 @@ export function statusMessage(
 ): string {
   const opponentId = localPlayerId === 'player-one' ? 'player-two' : 'player-one';
   const opponentName = snapshot.players[opponentId].username;
+  if (!snapshot.players[opponentId].connected) {
+    return `${opponentName} se reconnecte…`;
+  }
   if (!snapshot.ready['player-one'] || !snapshot.ready['player-two']) {
     return 'Les deux joueurs prennent place autour de la table…';
   }

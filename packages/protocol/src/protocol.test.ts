@@ -9,6 +9,7 @@ import {
   createCommandAccepted,
   createPublicSnapshot,
   createSeatObservation,
+  roomResumeTokenSchema,
   roomSnapshotSchema,
   seatObservationSchema,
   type SnapshotContext,
@@ -67,6 +68,19 @@ describe('client commands', () => {
 
   it('publishes a strict client message size budget', () => {
     expect(MAX_CLIENT_MESSAGE_BYTES).toBe(1_024);
+  });
+
+  it('validates a private one-use resume token message without accepting extra fields', () => {
+    const message = {
+      connectionGeneration: 2,
+      expiresAt: 1_775_000_060_000,
+      protocolVersion: 2,
+      token: 'opaque-resume-token'.padEnd(43, '0'),
+      type: 'room.resume-token',
+    };
+
+    expect(roomResumeTokenSchema.parse(message)).toEqual(message);
+    expect(() => roomResumeTokenSchema.parse({ ...message, playerId: 'player-one' })).toThrow();
   });
 });
 

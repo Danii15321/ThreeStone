@@ -12,6 +12,7 @@ const createRoomRequestSchema = z.strictObject({
   creatorUserId: z.string().min(1).max(128),
   gameId: z.uuid(),
   inviteCodeHash: z.string().regex(/^[a-f0-9]{64}$/),
+  leaseExpiresAt: z.number().int().positive(),
   leaseToken: z.string().min(16).max(256),
   roomId: z.uuid(),
   seed: z.number().int().safe(),
@@ -19,6 +20,7 @@ const createRoomRequestSchema = z.strictObject({
 
 const reserveSeatRequestSchema = z.strictObject({
   inviteCodeHash: z.string().regex(/^[a-f0-9]{64}$/),
+  leaseExpiresAt: z.number().int().positive(),
   leaseToken: z.string().min(16).max(256),
   userId: z.string().min(1).max(128),
 });

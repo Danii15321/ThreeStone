@@ -26,6 +26,7 @@ describe('HttpGameServerAdmissionGateway', () => {
         creatorUserId: 'creator',
         gameId: '019b15db-9829-7b46-a6a5-6cfcb1ca84c4',
         inviteCodeHash: 'a'.repeat(64),
+        leaseExpiresAt: 1_775_000_120_000,
         leaseToken: 'private-lease-token',
         roomId: RESERVATION.roomId,
         seed: 42,
@@ -58,6 +59,7 @@ describe('HttpGameServerAdmissionGateway', () => {
     await expect(
       gateway.reserveSeat({
         inviteCodeHash: 'b'.repeat(64),
+        leaseExpiresAt: 1_775_000_120_000,
         leaseToken: 'private-lease-token',
         userId: 'joiner',
       }),

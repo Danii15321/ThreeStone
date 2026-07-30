@@ -5,6 +5,7 @@ import { AdmissionRegistry } from './admission-registry.js';
 const ROOM_ID = 'a4e97166-e9e0-49cf-8812-96be1f59687a';
 const GAME_ID = 'dce9bd39-d4d2-431d-ad54-a959a42c983d';
 const CODE_HASH = 'a'.repeat(64);
+const LEASE_EXPIRES_AT = 1_775_000_120_000;
 
 function setup() {
   let now = 1_775_000_000_000;
@@ -20,6 +21,7 @@ function setup() {
     creatorUserId: 'creator',
     gameId: GAME_ID,
     inviteCodeHash: CODE_HASH,
+    leaseExpiresAt: LEASE_EXPIRES_AT,
     leaseToken: 'creator-lease-token',
     roomId: ROOM_ID,
   });
@@ -38,11 +40,13 @@ describe('AdmissionRegistry', () => {
 
     const joined = registry.reserveByCode({
       inviteCodeHash: CODE_HASH,
+      leaseExpiresAt: LEASE_EXPIRES_AT,
       leaseToken: 'joiner-lease-token',
       userId: 'joiner',
     });
     const third = registry.reserveByCode({
       inviteCodeHash: CODE_HASH,
+      leaseExpiresAt: LEASE_EXPIRES_AT,
       leaseToken: 'third-lease-token',
       userId: 'third',
     });
@@ -64,6 +68,7 @@ describe('AdmissionRegistry', () => {
     expect(
       registry.reserveByCode({
         inviteCodeHash: 'b'.repeat(64),
+        leaseExpiresAt: LEASE_EXPIRES_AT,
         leaseToken: 'unknown',
         userId: 'unknown',
       }),
@@ -72,6 +77,7 @@ describe('AdmissionRegistry', () => {
     expect(
       registry.reserveByCode({
         inviteCodeHash: CODE_HASH,
+        leaseExpiresAt: LEASE_EXPIRES_AT,
         leaseToken: 'expired',
         userId: 'late-player',
       }),
@@ -94,6 +100,7 @@ describe('AdmissionRegistry', () => {
     const { registry } = setup();
     const joined = registry.reserveByCode({
       inviteCodeHash: CODE_HASH,
+      leaseExpiresAt: LEASE_EXPIRES_AT,
       leaseToken: 'joiner-lease-token',
       userId: 'joiner',
     });
@@ -115,6 +122,7 @@ describe('AdmissionRegistry', () => {
     expect(
       registry.reserveByCode({
         inviteCodeHash: CODE_HASH,
+        leaseExpiresAt: LEASE_EXPIRES_AT,
         leaseToken: 'replacement-lease-token',
         userId: 'replacement',
       }),

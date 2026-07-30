@@ -38,12 +38,14 @@ export interface GameServerAdmissionGateway {
     readonly creatorUserId: string;
     readonly gameId: string;
     readonly inviteCodeHash: string;
+    readonly leaseExpiresAt: number;
     readonly leaseToken: string;
     readonly roomId: string;
     readonly seed: number;
   }): Promise<SeatReservation | null>;
   reserveSeat(input: {
     readonly inviteCodeHash: string;
+    readonly leaseExpiresAt: number;
     readonly leaseToken: string;
     readonly userId: string;
   }): Promise<SeatReservation | null>;
@@ -87,8 +89,9 @@ export class MultiplayerAdmissionService {
     const inviteCode = this.dependencies.createInviteCode();
     const leaseToken = this.dependencies.createLeaseToken();
     const leaseTokenHash = hashSecret(leaseToken);
+    const leaseExpiresAt = new Date(now.getTime() + LEASE_LIFETIME_MS);
     const lease = await this.dependencies.leases.acquire({
-      expiresAt: new Date(now.getTime() + LEASE_LIFETIME_MS),
+      expiresAt: leaseExpiresAt,
       leaseTokenHash,
       now,
       roomId,
@@ -104,6 +107,7 @@ export class MultiplayerAdmissionService {
         creatorUserId: account.id,
         gameId,
         inviteCodeHash: hashInviteCode(inviteCode),
+        leaseExpiresAt: leaseExpiresAt.getTime(),
         leaseToken,
         roomId,
         seed: seedFromUuid(gameId),
@@ -125,8 +129,10 @@ export class MultiplayerAdmissionService {
     const now = this.dependencies.clock();
     const leaseToken = this.dependencies.createLeaseToken();
     const leaseTokenHash = hashSecret(leaseToken);
+    const leaseExpiresAt = new Date(now.getTime() + LEASE_LIFETIME_MS);
     const reservation = await this.dependencies.gameServer.reserveSeat({
       inviteCodeHash: hashInviteCode(inviteCode),
+      leaseExpiresAt: leaseExpiresAt.getTime(),
       leaseToken,
       userId: account.id,
     });
@@ -136,7 +142,7 @@ export class MultiplayerAdmissionService {
 
     try {
       const lease = await this.dependencies.leases.acquire({
-        expiresAt: new Date(now.getTime() + LEASE_LIFETIME_MS),
+        expiresAt: leaseExpiresAt,
         leaseTokenHash,
         now,
         roomId: reservation.roomId,

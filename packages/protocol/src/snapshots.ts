@@ -83,7 +83,16 @@ export const seatObservationSchema = z.strictObject({
   ownHiddenChoice: z.number().int().min(0).max(3).optional(),
 });
 
+export const roomResumeTokenSchema = z.strictObject({
+  protocolVersion: z.literal(PROTOCOL_VERSION),
+  type: z.literal('room.resume-token'),
+  connectionGeneration: z.number().int().positive(),
+  expiresAt: z.number().int().positive(),
+  token: z.string().regex(/^[A-Za-z0-9_-]{43,256}$/),
+});
+
 export type RoomSnapshot = z.infer<typeof roomSnapshotSchema>;
+export type RoomResumeToken = z.infer<typeof roomResumeTokenSchema>;
 export type SeatObservation = z.infer<typeof seatObservationSchema>;
 
 export interface PublicPlayer {

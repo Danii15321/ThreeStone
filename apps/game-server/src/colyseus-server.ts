@@ -38,6 +38,9 @@ const admissionIdentitySchema = z.strictObject({
   userId: z.string().min(1).max(128),
   username: z.string().min(1).max(32),
 });
+const syncRequestSchema = z.strictObject({
+  protocolVersion: z.literal(2),
+});
 
 export interface ThreeStoneRoom extends Room {
   readonly authoritativeMatch: AuthoritativeMatch;
@@ -94,6 +97,11 @@ function createThreeStoneRoomClass(dependencies: MatchDependencies) {
       this.onMessage('command', async (client, command: unknown) => {
         await this.authoritativeMatch.receive(client.sessionId, command);
       });
+      this.onMessage('sync', (client, request: unknown) => {
+        if (syncRequestSchema.safeParse(request).success) {
+          this.authoritativeMatch.syncConnection(client.sessionId);
+        }
+      });
     }
 
     override async onAuth(_client: Client, rawOptions: unknown): Promise<AdmissionIdentity> {
@@ -104,10 +112,20 @@ function createThreeStoneRoomClass(dependencies: MatchDependencies) {
         typeof rawOptions.ticket === 'string'
           ? rawOptions.ticket
           : null;
-      if (ticket === null) {
+      const resumeToken =
+        typeof rawOptions === 'object' &&
+        rawOptions !== null &&
+        'resumeToken' in rawOptions &&
+        typeof rawOptions.resumeToken === 'string'
+          ? rawOptions.resumeToken
+          : null;
+      if ((ticket === null) === (resumeToken === null)) {
         throw roomUnavailable();
       }
-      const identity = await dependencies.verifyAdmissionTicket(ticket, this.roomId);
+      const identity =
+        resumeToken === null
+          ? await dependencies.verifyAdmissionTicket(ticket!, this.roomId)
+          : this.authoritativeMatch.consumeResumeToken(resumeToken);
       if (identity === null || !this.authoritativeMatch.canAdmit(identity)) {
         throw roomUnavailable();
       }

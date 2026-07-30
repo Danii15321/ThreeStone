@@ -18,6 +18,7 @@ export interface AdmissionRegistryOptions {
 
 interface SeatRecord {
   connectionGeneration: number;
+  leaseExpiresAt: number;
   readonly leaseToken: string;
   readonly playerId: MultiplayerSeat;
   readonly reservationId: string;
@@ -47,15 +48,25 @@ export class AdmissionRegistry {
     readonly creatorUserId: string;
     readonly gameId: string;
     readonly inviteCodeHash: string;
+    readonly leaseExpiresAt: number;
     readonly leaseToken: string;
     readonly roomId: string;
   }): AdmissionReservation | null {
     this.pruneExpiredWaitingRooms();
-    if (this.rooms.has(input.roomId) || this.roomIdByCodeHash.has(input.inviteCodeHash)) {
+    if (
+      input.leaseExpiresAt <= this.options.clock() ||
+      this.rooms.has(input.roomId) ||
+      this.roomIdByCodeHash.has(input.inviteCodeHash)
+    ) {
       return null;
     }
     const playerId = this.options.firstSeat();
-    const seat = this.createSeat(input.creatorUserId, playerId, input.leaseToken);
+    const seat = this.createSeat(
+      input.creatorUserId,
+      playerId,
+      input.leaseToken,
+      input.leaseExpiresAt,
+    );
     const room: RoomRecord = {
       creatorUserId: input.creatorUserId,
       gameId: input.gameId,
@@ -71,13 +82,18 @@ export class AdmissionRegistry {
 
   reserveByCode(input: {
     readonly inviteCodeHash: string;
+    readonly leaseExpiresAt: number;
     readonly leaseToken: string;
     readonly userId: string;
   }): AdmissionReservation | null {
     this.pruneExpiredWaitingRooms();
     const roomId = this.roomIdByCodeHash.get(input.inviteCodeHash);
     const room = roomId === undefined ? undefined : this.rooms.get(roomId);
-    if (room === undefined || room.waitingExpiresAt <= this.options.clock()) {
+    if (
+      room === undefined ||
+      room.waitingExpiresAt <= this.options.clock() ||
+      input.leaseExpiresAt <= this.options.clock()
+    ) {
       return null;
     }
     const existing = findSeatByUserId(room, input.userId);
@@ -89,7 +105,7 @@ export class AdmissionRegistry {
       return null;
     }
     const playerId: MultiplayerSeat = room.seats.has('player-one') ? 'player-two' : 'player-one';
-    const seat = this.createSeat(input.userId, playerId, input.leaseToken);
+    const seat = this.createSeat(input.userId, playerId, input.leaseToken, input.leaseExpiresAt);
     room.seats.set(playerId, seat);
     this.roomIdByCodeHash.delete(room.inviteCodeHash);
     return this.publicReservation(room.roomId, seat);
@@ -126,21 +142,49 @@ export class AdmissionRegistry {
     return { released: true, roomRemoved: false };
   }
 
-  getLeaseCredentials(
-    roomId: string,
-  ): readonly { readonly leaseToken: string; readonly userId: string }[] {
+  getLeaseCredentials(roomId: string): readonly {
+    readonly expiresAt: number;
+    readonly leaseToken: string;
+    readonly userId: string;
+  }[] {
     const room = this.rooms.get(roomId);
     return room === undefined
       ? []
       : [...room.seats.values()].map((seat) => ({
+          expiresAt: seat.leaseExpiresAt,
           leaseToken: seat.leaseToken,
           userId: seat.userId,
         }));
   }
 
-  private createSeat(userId: string, playerId: MultiplayerSeat, leaseToken: string): SeatRecord {
+  renewLease(roomId: string, userId: string, leaseToken: string, expiresAt: number): boolean {
+    const room = this.rooms.get(roomId);
+    const seat = room === undefined ? null : findSeatByUserId(room, userId);
+    if (seat === null || seat.leaseToken !== leaseToken) {
+      return false;
+    }
+    seat.leaseExpiresAt = expiresAt;
+    return true;
+  }
+
+  expireRoom(roomId: string): boolean {
+    const room = this.rooms.get(roomId);
+    if (room === undefined) {
+      return false;
+    }
+    this.deleteRoom(room);
+    return true;
+  }
+
+  private createSeat(
+    userId: string,
+    playerId: MultiplayerSeat,
+    leaseToken: string,
+    leaseExpiresAt: number,
+  ): SeatRecord {
     return {
       connectionGeneration: 1,
+      leaseExpiresAt,
       leaseToken,
       playerId,
       reservationId: this.options.createReservationId(),

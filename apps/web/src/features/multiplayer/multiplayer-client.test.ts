@@ -20,11 +20,13 @@ const ADMISSION: CreateMultiplayerRoomResponse = {
 
 class FakeRoom implements MultiplayerRoomConnection {
   readonly handlers = new Map<string, (payload: unknown) => void>();
+  readonly leaveHandlers = new Set<() => void>();
   readonly sent: { readonly type: string; readonly payload: unknown }[] = [];
   readonly leave = vi.fn(async () => undefined);
 
-  onLeave(): () => void {
-    return () => undefined;
+  onLeave(callback: () => void): () => void {
+    this.leaveHandlers.add(callback);
+    return () => this.leaveHandlers.delete(callback);
   }
 
   onMessage(type: string, callback: (payload: unknown) => void): () => void {
@@ -38,6 +40,12 @@ class FakeRoom implements MultiplayerRoomConnection {
 
   emit(type: string, payload: unknown): void {
     this.handlers.get(type)?.(payload);
+  }
+
+  disconnect(): void {
+    for (const handler of this.leaveHandlers) {
+      handler();
+    }
   }
 }
 
@@ -149,14 +157,57 @@ describe('MultiplayerClient', () => {
       type: 'command.rejected',
     });
 
-    expect(room.sent).toHaveLength(2);
-    expect(room.sent[0]?.payload).toMatchObject({
+    const commands = room.sent.filter((message) => message.type === 'command');
+    expect(commands).toHaveLength(2);
+    expect(commands[0]?.payload).toMatchObject({
       commandId: 'command-id-0001',
       knownSequence: 5,
     });
-    expect(room.sent[1]?.payload).toMatchObject({
+    expect(commands[1]?.payload).toMatchObject({
       commandId: 'command-id-0001',
       knownSequence: 6,
+    });
+  });
+
+  it('resumes directly with the in-memory token and keeps the latest snapshot', async () => {
+    const initialRoom = new FakeRoom();
+    const resumedRoom = new FakeRoom();
+    const scheduled: (() => void)[] = [];
+    const connector: MultiplayerRoomConnector = {
+      connect: vi.fn().mockResolvedValueOnce(initialRoom).mockResolvedValueOnce(resumedRoom),
+    };
+    const client = new MultiplayerClient(ADMISSION, connector, () => 'command-id-0001', {
+      now: () => 1_775_000_000_000,
+      schedule(_delayMs, task) {
+        scheduled.push(task);
+        return () => undefined;
+      },
+    });
+    await client.connect();
+    initialRoom.emit('room.snapshot', snapshot(7));
+    initialRoom.emit('room.resume-token', {
+      connectionGeneration: 1,
+      expiresAt: 1_775_000_060_000,
+      protocolVersion: 2,
+      token: 'resume-token'.padEnd(43, '0'),
+      type: 'room.resume-token',
+    });
+
+    initialRoom.disconnect();
+    expect(client.getState().connection).toBe('disconnected');
+    await scheduled.shift()?.();
+
+    expect(connector.connect).toHaveBeenLastCalledWith(ADMISSION.gameServerUrl, ADMISSION.roomId, {
+      resumeToken: 'resume-token'.padEnd(43, '0'),
+    });
+    expect(client.getState()).toMatchObject({
+      connection: 'connected',
+      snapshot: { sequence: 7 },
+    });
+    expect(client.getState()).not.toHaveProperty('resumeToken');
+    expect(resumedRoom.sent).toContainEqual({
+      type: 'sync',
+      payload: { protocolVersion: 2 },
     });
   });
 });
