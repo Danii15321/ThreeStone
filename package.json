@@ -13,12 +13,14 @@
     "db:generate": "pnpm --filter @three-stone/database db:generate",
     "db:migrate": "pnpm --filter @three-stone/database db:migrate",
     "dev": "pnpm --filter './packages/**' build && pnpm --parallel --filter @three-stone/web --filter @three-stone/api run dev",
+    "dev:game-server": "pnpm --filter './packages/**' build && pnpm --filter @three-stone/game-server dev",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "test": "pnpm --recursive --if-present run test",
     "test:e2e": "pnpm --filter @three-stone/web test:e2e",
     "test:integration": "pnpm --filter @three-stone/api test",
+    "test:multiplayer": "pnpm --filter @three-stone/game-server test",
     "typecheck": "pnpm --recursive --if-present run typecheck"
   },
   "devDependencies": {
