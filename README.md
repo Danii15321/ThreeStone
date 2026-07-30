@@ -42,6 +42,8 @@ TEST_DATABASE_URL="postgres://three_stone_game:local-development-only@localhost:
 pnpm test:e2e              # parcours Chromium, Firefox et WebKit
 pnpm test:multiplayer      # domaine autoritaire et serveur Colyseus
 pnpm test:load:multiplayer # 20 salons et 40 connexions
+pnpm audit:security        # aucun avis de production élevé ou critique
+pnpm validate:v2           # toutes les portes locales de la candidate v2
 pnpm db:generate           # génère une migration Drizzle
 pnpm db:migrate            # applique les migrations
 ```
@@ -188,8 +190,8 @@ contraste sont regroupés dans « Paramètres du jeu ».
 - Au moins un niveau équilibré ; plusieurs difficultés seulement si elles sont
   calibrées par des parties simulées.
 - Interface responsive, accessible et jouable au clavier.
-- Direction visuelle hand-painted nordique, animations, sons et réglages
-  locaux.
+- Direction visuelle hand-painted nordique, animations et réglages locaux,
+  sans musique ni effets sonores.
 - API authentifiée avec validation stricte, limitation de débit sur les routes
   sensibles et migrations de base de données versionnées.
 
@@ -199,7 +201,7 @@ contraste sont regroupés dans « Paramètres du jeu ».
 - Tableau de bord de statistiques plus détaillé, si les données collectées en
   v1 permettent de le faire sans nouvelle donnée personnelle.
 - Variantes cosmétiques et options d'accessibilité supplémentaires.
-- Optimisation du chargement des images et sons.
+- Optimisation du chargement des images.
 - Éventuel mode local à deux joueurs si l'expérience de choix secret est
   satisfaisante sur un appareil partagé.
 
@@ -287,7 +289,7 @@ afin que les parties et l'IA soient reproductibles.
 ```mermaid
 flowchart LR
     UI["Interface React<br/>menus et contrôles"] --> C["Contrôleur de partie"]
-    P["Présentation Phaser<br/>plateau, animations, audio"] <--> C
+    P["Présentation Phaser<br/>plateau et animations"] <--> C
     A["Adaptateur IA (solo)<br/>observation autorisée"] --> C
     C -->|"mode solo"| G["Moteur de règles pur<br/>état, actions, événements"]
     UI -->|"compte, profil, résultats"| API["API Hono (v1)<br/>authentification et application"]
@@ -428,7 +430,7 @@ projet Vercel unique et PostgreSQL Neon conformément à
 - les informations secrètes ne sont pas révélées prématurément ;
 - l'interface fonctionne au clavier, au tactile et à la souris ;
 - le jeu reste lisible sur les tailles d'écran ciblées ;
-- animations et sons peuvent être réduits ou désactivés ;
+- les animations peuvent être réduites ou désactivées ; aucun son n’est livré ;
 - les erreurs n'interrompent pas silencieusement une partie ;
 - les routes sensibles sont protégées, limitées et ne divulguent aucune donnée
   personnelle ou information de session ;
@@ -447,23 +449,21 @@ Preuves reproductibles :
   Firefox et WebKit ;
 - la CI démarre PostgreSQL, applique les migrations puis rejoue ces contrôles.
 
-## Déploiement Vercel
+## Livraison et exploitation
 
-Le projet racine sert le client Vite et l'API Hono sous la même origine HTTPS.
-Les variables de connexion Neon et les secrets Better Auth sont gérés par
-Vercel et ne doivent jamais être copiés dans un fichier suivi par Git.
+La v1 sert le client Vite et l’API Hono depuis Vercel sous la même origine
+HTTPS. La v2 ajoute un Web Service Render long vivant pour Colyseus ; le
+game-server ne doit pas être exécuté dans une fonction Vercel.
 
-Séquence de release :
+La candidate v2 est préparée mais n’est ni poussée ni déployée. Une validation
+explicite est nécessaire avant chaque action distante. La procédure complète,
+les variables, la migration, les smoke tests, le drainage de dix minutes et le
+retour arrière sont décrits dans
+[`docs/OPERATIONS_V2.md`](./docs/OPERATIONS_V2.md).
 
-1. `pnpm check` ;
-2. `vercel pull --yes --environment=production` ;
-3. `bash scripts/migrate-vercel-production.sh` ;
-4. `vercel build --prod` ;
-5. `vercel deploy --prebuilt --prod` ;
-6. smoke tests sur l'accueil, liveness, readiness et le parcours de compte.
-
-Les migrations utilisent `DATABASE_URL_UNPOOLED`, tandis que les fonctions
-utilisent `DATABASE_URL` avec `DATABASE_MAX_CONNECTIONS=1`.
+Avant toute autorisation, `pnpm validate:v2` doit être vert avec PostgreSQL
+local disponible. Cette commande ne migre et ne déploie aucun environnement
+distant.
 
 ## Documentation associée
 
@@ -477,5 +477,9 @@ utilisent `DATABASE_URL` avec `DATABASE_MAX_CONNECTIONS=1`.
   multijoueur privé.
 - [`docs/PIPELINE_V2.md`](./docs/PIPELINE_V2.md) : séquence TDD et portes
   proportionnées de la v2.
+- [`docs/VALIDATION_V2.md`](./docs/VALIDATION_V2.md) : preuves, limites et point
+  de décision avant push ou staging.
+- [`docs/OPERATIONS_V2.md`](./docs/OPERATIONS_V2.md) : runbook de migration,
+  santé, drainage, supervision et retour arrière.
 - Les futures décisions structurantes devront être conservées sous forme d'ADR
   dans `docs/decisions/`.

@@ -26,14 +26,16 @@ la date.
 8. [`ADR-0012`](./ADR-0012-authentification-par-pseudonyme.md) —
    authentification par pseudonyme, sans email ;
 9. [`ADR-0013`](./ADR-0013-profil-bio-avatar.md) — bio, avatar et présentation
-   du profil v1.
+   du profil v1 ;
 10. [`ADR-0014`](./ADR-0014-deploiement-vercel-v1.md) — déploiement Vercel,
     fonction Hono et PostgreSQL Neon pour la v1.
 
 ## ADR v2 acceptés
 
 1. [`ADR-0006`](./ADR-0006-hebergement-game-server-v2.md) — serveur Colyseus
-   mono-instance sur un Web Service Render européen.
+   mono-instance sur un Web Service Render européen ;
+2. [`ADR-0015`](./ADR-0015-visibilite-avatar-v2.md) — avatar visible comme
+   identité de jeu aux joueurs authentifiés, autres données privées.
 
 Les numéros `0007` à `0009` restent réservés aux décisions v2 déjà annoncées
 dans l’architecture. L’ADR-0012 est la décision courante pour

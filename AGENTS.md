@@ -98,11 +98,12 @@ Les dépendances pointent vers le domaine :
 - Préférer des cookies de session `httpOnly`, `secure` en production et avec une
   politique `sameSite` adaptée. Ne pas stocker de jeton de session dans
   `localStorage`.
-- Appliquer l'autorisation dans les services : un utilisateur ne lit ou ne
-  modifie que son profil, ses préférences et ses résultats.
+- Appliquer l'autorisation dans les services : un utilisateur ne modifie que
+  son profil et ne lit que ses préférences, résultats et données privées.
 - Borner et vérifier les médias de profil côté serveur : avatars JPEG, PNG ou
-  WebP de 1 Mio maximum, signature cohérente avec le type déclaré et lecture
-  réservée à la session propriétaire.
+  WebP de 1 Mio maximum et signature cohérente avec le type déclaré. Seul le
+  propriétaire modifie l’avatar ; sa lecture est une identité de jeu visible
+  aux joueurs authentifiés. Bio, compte et historique restent privés.
 - Versionner ensemble les écritures de bio et d'avatar avec le verrou optimiste
   du profil. Le pseudonyme de connexion reste géré par Better Auth.
 - Utiliser PostgreSQL dès la v1 et Drizzle pour le schéma, les requêtes et les
@@ -124,8 +125,8 @@ Les dépendances pointent vers le domaine :
 - Valider toute action à la frontière du moteur.
 - Retourner des erreurs de domaine explicites ; ne pas utiliser d'exception pour
   un refus métier attendu.
-- Émettre des événements de domaine pour piloter l'affichage, l'audio, les
-  replays et le réseau.
+- Émettre des événements de domaine pour piloter l'affichage, les replays et le
+  réseau.
 - Ne jamais lire directement l'heure système ni appeler une source aléatoire
   globale. Injecter horloge et générateur pseudo-aléatoire.
 - Une partie terminée est un état terminal.
@@ -160,14 +161,14 @@ Les dépendances pointent vers le domaine :
 
 - Garder les menus, champs, boutons, réglages et annonces importantes dans le
   DOM pour préserver l'accessibilité.
-- Réserver Phaser au plateau, aux sprites, aux animations, aux particules et à
-  l'audio spatial ou d'ambiance.
+- Réserver Phaser au plateau, aux sprites, aux animations et aux particules.
 - Une animation traduit un événement confirmé ; elle ne fait pas avancer
   directement les règles.
 - Toute séquence doit pouvoir être accélérée ou passée sans désynchroniser
   l'état.
 - Supporter souris, tactile et clavier.
-- Respecter `prefers-reduced-motion` et prévoir un mode muet.
+- Respecter `prefers-reduced-motion`. Ne pas réintroduire de son sans nouvelle
+  décision produit.
 - Ne jamais transmettre une information uniquement par couleur, son ou
   animation.
 - Tester les vues ciblées en portrait, paysage et bureau.
@@ -269,7 +270,7 @@ responsabilité et une API claires.
   reset, aux tokens et aux éléments de base.
 - Les styles en ligne sont réservés aux valeurs réellement calculées à
   l'exécution.
-- Optimiser les images et sons dans des formats adaptés aux navigateurs ciblés.
+- Optimiser les images dans des formats adaptés aux navigateurs ciblés.
 - Documenter pour chaque asset sa source, sa licence et les éventuelles
   conditions d'attribution.
 - Ne jamais ajouter un asset trouvé sur Internet sans droit d'utilisation clair.
@@ -315,8 +316,8 @@ test comme verrouillé, implémenter, puis vérifier.
 - Synchronisation entre domaine et présentation.
 - Inscription et connexion par pseudonyme, déconnexion, changement de mot de
   passe, changement de pseudonyme et suppression du compte.
-- Bio bornée, avatar valide, concurrence de profil et restitution privée du
-  média.
+- Bio bornée, avatar valide, concurrence de profil, modification propriétaire
+  et lecture authentifiée du média.
 - Autorisation et isolation des profils, préférences et résultats.
 - Idempotence des résultats et compatibilité des migrations PostgreSQL.
 - Parcours clavier, tactile et navigateur.
@@ -404,6 +405,10 @@ Le projet expose actuellement :
 - `TEST_DATABASE_URL="<url-base-isolée>" pnpm test:integration` :
   intégration Better Auth et repositories sur PostgreSQL ;
 - `pnpm test:e2e` : parcours Chromium, Firefox et WebKit avec l’API ;
+- `pnpm test:multiplayer` : serveur autoritaire, reprise et résilience ;
+- `pnpm test:load:multiplayer` : 20 salons et 40 connexions ;
+- `pnpm audit:security` : avis de production élevés et critiques ;
+- `pnpm validate:v2` : toutes les portes locales de la candidate v2 ;
 - `pnpm db:generate` et `pnpm db:migrate` : migrations Drizzle ;
 - `pnpm build` : builds de production.
 

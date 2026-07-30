@@ -3,6 +3,8 @@
 - Statut : accepté
 - Date : 2026-07-29
 - Version cible : v1
+- Amendement v2 : la visibilité est remplacée par
+  [`ADR-0015`](./ADR-0015-visibilite-avatar-v2.md)
 
 ## Contexte
 
@@ -35,9 +37,10 @@ compte atomique. L’encodage base64 augmente toutefois la taille stockée
 d’environ un tiers ; la limite de 1 Mio et le périmètre v1 rendent ce compromis
 acceptable.
 
-Avant d’ouvrir les profils aux autres joueurs ou d’augmenter les tailles, un
-nouvel ADR devra traiter stockage objet, URLs signées ou publiques,
-redimensionnement, modération, cache, métadonnées et suppression différée.
+L’ouverture limitée de l’avatar aux joueurs authentifiés est décidée par
+`ADR-0015`. Le passage au stockage objet, l’augmentation de taille, une URL
+publique, le redimensionnement, la modération, le cache ou la suppression
+différée nécessitent toujours une nouvelle décision.
 
 ## Vérification
 

@@ -31,5 +31,8 @@ export type GameServerEnvironment = z.infer<typeof gameServerEnvironmentSchema>;
 export function readGameServerEnvironment(
   source: NodeJS.ProcessEnv = process.env,
 ): GameServerEnvironment {
-  return gameServerEnvironmentSchema.parse(source);
+  return gameServerEnvironmentSchema.parse({
+    ...source,
+    GAME_SERVER_PORT: source.GAME_SERVER_PORT ?? source.PORT,
+  });
 }

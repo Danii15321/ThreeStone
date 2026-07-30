@@ -70,6 +70,9 @@ jobs:
       - name: Run quality gates
         run: pnpm check
 
+      - name: Verify the multiplayer load target
+        run: pnpm test:load:multiplayer
+
       - name: Install browser engines
         run: pnpm exec playwright install --with-deps chromium firefox webkit
 

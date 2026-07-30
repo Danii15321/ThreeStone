@@ -1,7 +1,7 @@
 # Pipeline de développement — ThreeStone v2 multijoueur
 
-- Statut : prête pour implémentation après validation de V2-00
-- Version du document : `1.0.0`
+- Statut : exécutée localement jusqu’à la porte de déploiement
+- Version du document : `1.1.0`
 - Cible : première v2 multijoueur privée exploitable
 - Méthode : TDD, incréments verticaux et serveur autoritaire
 - Date : 2026-07-30
@@ -99,19 +99,25 @@ flowchart TD
     Q9 --> X10["V2-10 · Staging et production"]
 ```
 
-| Lot | Résultat principal | Dépend de | État initial |
+| Lot | Résultat principal | Dépend de | État actuel |
 | --- | --- | --- | --- |
-| V2-00 | Contrats et baseline figés | — | À faire |
-| V2-01 | Domaine multijoueur pur | V2-00 | Bloqué |
-| V2-02 | Protocole public/privé versionné | V2-01 | Bloqué |
-| V2-03 | Schéma, transcript et bail | V2-01 | Bloqué |
-| V2-04 | Salle Colyseus autoritaire | V2-02, V2-03 | Bloqué |
-| V2-05 | Création et admission sécurisées | V2-04 | Bloqué |
-| V2-06 | Partie à deux navigateurs | V2-05 | Bloqué |
-| V2-07 | Reprise et pannes maîtrisées | V2-06 | Bloqué |
-| V2-08 | Revanche, score, réactions, historique | V2-07 | Bloqué |
-| V2-09 | Sécurité, accessibilité et charge | V2-08 | Bloqué |
-| V2-10 | Déploiement v2 vérifié | V2-09 | Bloqué |
+| V2-00 | Contrats et baseline figés | — | Validé |
+| V2-01 | Domaine multijoueur pur | V2-00 | Validé |
+| V2-02 | Protocole public/privé versionné | V2-01 | Validé |
+| V2-03 | Schéma, transcript et bail | V2-01 | Validé |
+| V2-04 | Salle Colyseus autoritaire | V2-02, V2-03 | Validé |
+| V2-05 | Création et admission sécurisées | V2-04 | Validé |
+| V2-06 | Partie à deux navigateurs | V2-05 | Validé |
+| V2-07 | Reprise et pannes maîtrisées | V2-06 | Validé |
+| V2-08 | Revanche, score, réactions, historique | V2-07 | Validé |
+| V2-09 | Sécurité, accessibilité et charge | V2-08 | Validé |
+| V2-10 | Déploiement v2 vérifié | V2-09 | Prêt localement — validation requise |
+
+Les preuves consolidées figurent dans
+[`VALIDATION_V2.md`](./VALIDATION_V2.md). La procédure de staging, production,
+drainage et retour arrière est décrite dans
+[`OPERATIONS_V2.md`](./OPERATIONS_V2.md). Aucun push ou déploiement n’a été
+effectué.
 
 ## 5. V2-00 — Baseline et décisions
 
@@ -475,7 +481,8 @@ Commit suggéré : `chore(v2): durcit sécurité accessibilité et résilience`.
 
 ### Objectif
 
-Déployer une v2 vérifiable sans promettre une infrastructure prématurée.
+Préparer puis, après validation explicite, déployer une v2 vérifiable sans
+promettre une infrastructure prématurée.
 
 ### Travail
 
@@ -489,6 +496,11 @@ Déployer une v2 vérifiable sans promettre une infrastructure prématurée.
 - tester une fois le drainage et le retour à la version précédente ;
 - déployer en production puis ouvrir les créations de salons ;
 - surveiller admissions, reprises, baux et persistences terminales.
+
+La préparation locale, les contrôles automatisés et le runbook sont terminés.
+Le provisionnement, les migrations distantes, le staging et la production
+restent volontairement en attente de validation ; ils ne peuvent pas être
+marqués comme exécutés sur la seule preuve locale.
 
 ### Porte terminale v2
 
@@ -536,8 +548,9 @@ pnpm test:multiplayer
 pnpm test:load:multiplayer
 ```
 
-Les deux dernières commandes seront ajoutées dans les lots V2-06 et V2-09.
-Elles ne doivent pas dépendre de comptes ou secrets de production.
+Les deux dernières commandes sont implémentées. Elles ne dépendent d’aucun
+compte ou secret de production. `pnpm validate:v2` agrège les portes locales
+terminales sans migrer ni déployer un environnement distant.
 
 ## 18. Compte rendu après chaque lot
 

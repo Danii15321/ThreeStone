@@ -20,7 +20,8 @@ Redis et futurs moyens de paiement.
 | Choix caché | absent de tout message adverse avant révélation |
 | État autoritaire et séquence | intégrité, ordre et idempotence |
 | Code d’invitation | non énumérable, non journalisé, erreur publique générique |
-| Profil, avatar et historique | accès limité au compte ou aux deux participants |
+| Bio, compte et historique | accès limité au propriétaire ou aux deux participants pour une partie partagée |
+| Avatar | modification propriétaire, lecture réservée aux joueurs authentifiés |
 | Résultat et transcript | intégrité, écriture terminale idempotente |
 | Bail actif | unicité par compte, propriétaire vérifié, expiration après crash |
 | Secrets de service | absents du client, du dépôt, des URL et des logs |
@@ -75,10 +76,14 @@ Contrôles :
 - rejet des origines tierces sur les mutations ;
 - identité prise dans la session, jamais dans un identifiant client ;
 - limites de corps, validation stricte et validation binaire de l’avatar ;
+- avatar seul visible aux joueurs authentifiés selon `ADR-0015`, sans bio,
+  historique ou métadonnée de compte ;
 - erreurs publiques bornées et identifiant de corrélation.
 
 Risque résiduel : l’absence volontaire de récupération du mot de passe peut
-entraîner une perte de compte, mais n’affaiblit pas l’autorisation.
+entraîner une perte de compte. Un ancien adversaire peut aussi relire l’avatar
+à partir de l’identifiant opaque reçu pendant une partie ; cette visibilité
+constitue la politique produit v2 et non celle des autres données du profil.
 
 ### Admission et code de salon
 

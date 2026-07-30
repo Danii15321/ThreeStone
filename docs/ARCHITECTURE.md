@@ -426,7 +426,8 @@ Elle ne contient ni logique métier, ni requête Drizzle.
 Cas d'usage implémentés :
 
 - lire et modifier son profil ;
-- enregistrer, lire et supprimer son avatar privé ;
+- enregistrer et supprimer son avatar ; le propriétaire le lit dans son profil
+  et les joueurs authentifiés le voient comme identité de jeu ;
 - lire et modifier ses préférences ;
 - enregistrer un résultat solo terminé ;
 - consulter son historique et ses statistiques ;
@@ -809,10 +810,10 @@ v1 :
 
 v2 :
 
-- salles actives et connexions ;
-- commandes acceptées et refusées ;
-- reconnexions, abandons et expirations ;
-- latence de boucle de salle ;
+- connexions actives et salons créés, rejoints, terminés ou annulés ;
+- reprises réussies et refusées, abandons et expirations ;
+- nombre de commandes mesurées et latence d’acceptation p95 ;
+- échecs de renouvellement de bail ;
 - échecs de persistance terminale.
 
 Toute télémétrie produit nécessite une décision de consentement et de rétention.
@@ -820,7 +821,7 @@ Toute télémétrie produit nécessite une décision de consentement et de réte
 ## Performance
 
 - Définir un budget d'assets avant la production graphique.
-- Charger d'abord le shell et les contrôles, puis le plateau et les sons.
+- Charger d'abord le shell et les contrôles, puis le plateau.
 - Utiliser atlas, formats modernes et niveaux de qualité adaptés.
 - Maintenir une interaction fluide sur les appareils cibles, mesurée et non
   supposée.
@@ -872,16 +873,17 @@ Toute télémétrie produit nécessite une décision de consentement et de réte
 
 ### Production
 
-Topologie v1 déployée :
+Topologie cible v2, préparée mais non déployée :
 
 ```mermaid
 flowchart LR
     Browser["Navigateur"] --> Edge["Vercel CDN / TLS"]
     Edge -->|"/ et routes SPA"| Static["Build Vite statique"]
     Edge -->|"/api/*"| Api["Fonction Node / Hono"]
-    Edge -->|"/game/* v2"| Game["Colyseus"]
+    Browser <-->|"WSS direct"| Game["Render Web Service<br/>Colyseus · 1 instance"]
+    Api -->|"HTTPS + secret interne"| Game
     Api -->|URL poolée, pool = 1| Db[("Neon PostgreSQL · Europe")]
-    Game --> Db
+    Game -->|"TLS · pool borné"| Db
 ```
 
 Le projet Vercel racine produit `apps/web/dist` et une fonction unique
@@ -891,10 +893,16 @@ opération de release explicite utilisant l'URL Neon non poolée ; elles ne
 s'exécutent jamais pendant le démarrage d'une fonction. Les secrets de
 production et de preview restent distincts.
 
-La v2 temps réel ne doit pas supposer que Colyseus sera hébergé par la même
-fonction. Une seule instance Colyseus est suffisante au lancement v2 si les
-mesures le permettent. Redis et le routage multi-instance ne sont ajoutés
-qu'avec une stratégie explicite de présence et d'affinité des salles.
+Le game-server accepte le `PORT` fourni par Render, expose liveness, readiness,
+métriques internes et drainage, et exige une origine web HTTPS exacte. Une seule
+instance Colyseus est suffisante au lancement v2 selon la charge mesurée. Redis
+et le routage multi-instance ne sont ajoutés qu'avec une stratégie explicite de
+présence et d'affinité des salles.
+
+Le runbook exécutable est
+[`OPERATIONS_V2.md`](./OPERATIONS_V2.md). Le dossier de preuves et le point de
+validation préalable aux actions distantes sont dans
+[`VALIDATION_V2.md`](./VALIDATION_V2.md).
 
 ## Stratégie de tests
 
@@ -921,9 +929,11 @@ Les ADR v1 acceptés sont indexés dans
 le cycle de compte par pseudonyme, PostgreSQL/Drizzle, la séparation
 public/privé, la rétention, la topologie de déploiement, les budgets visuels et
 le stockage de l’avatar v1.
-Les ADR de
-protocole Colyseus, ticket d'identité, reconnexion et journal d'événements ne
-seront décidés qu'à l'ouverture explicite de la v2.
+L’ADR
+[`ADR-0006`](./decisions/ADR-0006-hebergement-game-server-v2.md) fixe
+l’hébergement Render, l’instance unique, WSS, les secrets, le drainage et le
+retour arrière. `SPEC_V2.md` fixe le protocole, les tickets, la reprise et le
+transcript terminal.
 
 ## Évolution contrôlée
 
@@ -935,6 +945,6 @@ Une proposition d'évolution doit répondre à cinq questions :
 4. Comment migrer données, clients ou protocole ?
 5. Comment revenir en arrière ?
 
-La séquence d'implémentation, les dépendances entre fonctionnalités et les portes
-de livraison sont détaillées dans
-[`pipeline-complete.md`](./pipeline-complete.md).
+La séquence v2, ses dépendances et ses portes sont détaillées dans
+[`PIPELINE_V2.md`](./PIPELINE_V2.md). La pipeline historique jusqu’à la v1
+reste dans [`pipeline-complete.md`](./pipeline-complete.md).

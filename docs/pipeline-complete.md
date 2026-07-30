@@ -13,9 +13,9 @@ Il définit :
 - les portes de validation des phases 0, v1, v1.x et v2 ;
 - les conditions terminales de la v2.
 
-Il ne constitue pas une autorisation d'implémenter toute la roadmap en une fois.
-Chaque lot doit être explicitement ouvert et ne peut commencer que lorsque ses
-prérequis sont validés.
+Il ne constitue pas une autorisation de pousser ou déployer. Les lots v2 ont été
+explicitement ouverts et exécutés localement ; toute action distante reste
+soumise à une validation séparée du propriétaire.
 
 Références :
 
@@ -23,9 +23,9 @@ Références :
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) — frontières et flux techniques ;
 - [`../AGENTS.md`](../AGENTS.md) — standards et intégrité TDD.
 
-## État d'avancement au 29 juillet 2026
+## État d'avancement au 30 juillet 2026
 
-La candidate v1 est fonctionnelle et vérifiée localement. Les états ci-dessous
+La candidate v2 est fonctionnelle et vérifiée localement. Les états ci-dessous
 distinguent la preuve produit de la mise en production réelle :
 
 | Ensemble | État | Preuves principales |
@@ -33,18 +33,19 @@ distinguent la preuve produit de la mise en production réelle :
 | Phase 0 et ADR v1 | `VERIFIED` | règles `1.0.0`, compte/données, stack, déterminisme, identité par pseudonyme, topologie et budgets documentés |
 | Fondations F1 | `VERIFIED` pour la candidate | monorepo strict, configuration validée, PostgreSQL, migrations, API durcie et CI reproductible |
 | Moteur G1 | `VERIFIED` | transitions, refus, vues privées, propriétés et replay déterministe |
-| Compte/API A1 | `VERIFIED` | Better Auth par pseudonyme, identité modifiable, bio/avatar privés, session, mot de passe, préférences, export API et suppression sur PostgreSQL réel |
+| Compte/API A1 | `VERIFIED` | Better Auth par pseudonyme, identité modifiable, bio privée, avatar modifiable par son propriétaire et visible comme identité de jeu authentifiée, session, mot de passe, préférences, export API et suppression sur PostgreSQL réel |
 | IA I1 | `VERIFIED` | actions légales, absence de secret, graine injectée et calibration reproductible des trois niveaux |
-| Interface U1 | `VERIFIED` | React accessible, tutoriel, Phaser Canvas, audio, contraste, mouvement réduit et responsive |
+| Interface U1 | `VERIFIED` | React accessible, tutoriel, Phaser Canvas sans audio, contraste, mouvement réduit et responsive |
 | Solo/résultats S1 | `VERIFIED` | partie complète, résultat idempotent, historique/statistiques et parcours E2E multi-navigateurs |
 | Livraison R1 | `READY_FOR_RELEASE` local uniquement | build et smoke tests locaux passants ; staging, restauration répétée, audit de sécurité de release et production restent à exécuter sur l'infrastructure cible |
-| v1.x et v2 | `BACKLOG` | aucun code v2 ajouté |
+| v2 multijoueur | `READY_FOR_VALIDATION` | serveur autoritaire, admission, reprise, délais, revanche, historique, audit complet, accessibilité et charge 20 salons / 40 connexions |
+| Livraison v2 | `AWAITING_APPROVAL` | runbook et rollback documentés ; aucun push, staging ou déploiement exécuté |
 
 La CI démarre PostgreSQL, applique les migrations, exécute les suites
 Vitest avec intégration réelle, construit les workspaces puis joue le parcours
 compte → partie → statistiques → suppression sur Chromium, Firefox et WebKit.
-Un état `RELEASED` ne devra être utilisé qu'après les opérations R1 sur une
-infrastructure de staging puis de production.
+Un état `RELEASED` ne devra être utilisé qu’après une validation explicite, un
+staging puis la production.
 
 ## Signification de « v2 finale »
 
@@ -57,11 +58,13 @@ La v2 est terminale pour cette pipeline lorsque :
 - reconnexion, délai, abandon et double soumission sont traités ;
 - le résultat est persisté une seule fois ;
 - sécurité, accessibilité, observabilité, migrations et exploitation sont
-  validées ;
-- la livraison de production et son retour arrière ont été répétés.
+  validées localement ;
+- la livraison, le drainage et le retour arrière sont documentés et
+  exécutables.
 
 Les fonctionnalités hors périmètre ne sont pas nécessaires pour atteindre cet
-état terminal.
+état terminal de développement. Le staging, la production et leur rollback
+réel constituent une décision de release distincte.
 
 ## Pipeline obligatoire de toute fonctionnalité
 
@@ -1205,11 +1208,12 @@ Tout défaut critique ou élevé non accepté bloque la sortie.
 
 ### Données et exploitation
 
-- Migrations et restauration prouvées.
+- Migrations prouvées depuis zéro et depuis la v1.
 - Rétention et suppression conformes.
 - Logs redacted.
-- Dashboards, alertes et runbooks disponibles.
-- Déploiement et rollback répétés.
+- Métriques bornées, seuils et runbooks disponibles.
+- Drainage et rollback testés au niveau applicatif ; répétition cloud après
+  autorisation d’un staging.
 - Équipe capable de diagnostiquer une salle et un résultat sans lire de secret.
 
 ### Documentation
@@ -1220,8 +1224,10 @@ Tout défaut critique ou élevé non accepté bloque la sortie.
 - Notes de livraison et limites connues publiées.
 - Aucun comportement important documenté uniquement dans le code.
 
-Lorsque tous ces points sont prouvés, la pipeline jusqu'à la v2 finale est
-terminée. Toute fonctionnalité supplémentaire ouvre une nouvelle roadmap.
+Lorsque tous les points locaux sont prouvés, la candidate atteint la fin de la
+pipeline de développement. Elle ne devient `RELEASED` qu’après les opérations
+distantes explicitement approuvées. Toute fonctionnalité supplémentaire ouvre
+une nouvelle roadmap.
 
 # Matrice minimale de tests
 
@@ -1252,6 +1258,7 @@ terminée. Toute fonctionnalité supplémentaire ouvre une nouvelle roadmap.
 9. Build de chaque application.
 10. Playwright ciblé.
 11. Rapport de dépendances.
+12. Charge multijoueur 20 salons / 40 connexions.
 
 ## Branche principale
 
