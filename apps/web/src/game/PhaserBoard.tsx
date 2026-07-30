@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react';
 import type PhaserTypes from 'phaser';
 
+import aiVictoryHandsUrl from '../assets/game-hands-ai-victory.jpg';
 import closedHandsUrl from '../assets/game-hands-closed.webp';
+import humanVictoryHandsUrl from '../assets/game-hands-human-victory.jpg';
 import openHandsUrl from '../assets/game-hands-open.webp';
 import { createBoardImageMotion } from './board-image-motion.js';
 import type { BoardModel } from './board-model.js';
@@ -17,6 +19,8 @@ const BOARD_WIDTH = 960;
 const BOARD_HEIGHT = 540;
 const CLOSED_HANDS_KEY = 'three-stone-closed-hands';
 const OPEN_HANDS_KEY = 'three-stone-open-hands';
+const AI_VICTORY_HANDS_KEY = 'three-stone-ai-victory-hands';
+const HUMAN_VICTORY_HANDS_KEY = 'three-stone-human-victory-hands';
 
 export function PhaserBoard({ highContrast, model, reducedMotion }: PhaserBoardProps) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -47,6 +51,8 @@ export function PhaserBoard({ highContrast, model, reducedMotion }: PhaserBoardP
           preload(this: PhaserTypes.Scene) {
             this.load.image(CLOSED_HANDS_KEY, closedHandsUrl);
             this.load.image(OPEN_HANDS_KEY, openHandsUrl);
+            this.load.image(AI_VICTORY_HANDS_KEY, aiVictoryHandsUrl);
+            this.load.image(HUMAN_VICTORY_HANDS_KEY, humanVictoryHandsUrl);
           },
           create(this: PhaserTypes.Scene) {
             drawBoard(
@@ -89,12 +95,7 @@ export function PhaserBoard({ highContrast, model, reducedMotion }: PhaserBoardP
     reducedMotion,
   ]);
 
-  const poseDescription =
-    model.pose === 'closed'
-      ? 'Les deux mains sont fermées.'
-      : `Les mains sont ouvertes : ${model.ai.revealedCount} caillou${plural(
-          model.ai.revealedCount,
-        )} pour l'ordinateur et ${model.human.revealedCount} pour vous.`;
+  const poseDescription = describePose(model);
 
   return (
     <div
@@ -114,6 +115,17 @@ function drawBoard(
   highContrast: boolean,
 ): void {
   const isRevealed = model.pose === 'revealed';
+  const victoryKey =
+    model.pose === 'ai-victory'
+      ? AI_VICTORY_HANDS_KEY
+      : model.pose === 'human-victory'
+        ? HUMAN_VICTORY_HANDS_KEY
+        : null;
+  if (victoryKey) {
+    drawVictoryPose(scene, victoryKey, reducedMotion, highContrast);
+    return;
+  }
+
   const closedHands = scene.add
     .image(BOARD_WIDTH / 2, BOARD_HEIGHT / 2, CLOSED_HANDS_KEY)
     .setOrigin(0.5);
@@ -207,6 +219,68 @@ function drawBoard(
   if (model.dropStone) {
     animateDiscard(scene, model.dropStone, reducedMotion, highContrast);
   }
+}
+
+function drawVictoryPose(
+  scene: PhaserTypes.Scene,
+  textureKey: string,
+  reducedMotion: boolean,
+  highContrast: boolean,
+): void {
+  const hands = scene.add.image(BOARD_WIDTH / 2, BOARD_HEIGHT / 2, textureKey).setOrigin(0.5);
+  hands.setDisplaySize(BOARD_WIDTH, BOARD_HEIGHT);
+  const motion = createBoardImageMotion({
+    baseScaleX: hands.scaleX,
+    baseScaleY: hands.scaleY,
+    centerX: BOARD_WIDTH / 2,
+    centerY: BOARD_HEIGHT / 2,
+  });
+
+  if (!reducedMotion) {
+    hands
+      .setAlpha(0)
+      .setScale(motion.revealTransition.scaleX, motion.revealTransition.scaleY)
+      .setPosition(motion.revealTransition.x, motion.revealTransition.y);
+    scene.tweens.add({
+      alpha: 1,
+      duration: 650,
+      ease: 'Back.Out',
+      onComplete: () => {
+        scene.tweens.add({
+          duration: 1100,
+          ease: 'Sine.InOut',
+          repeat: -1,
+          scaleX: { from: motion.rest.scaleX, to: motion.breathing.scaleX },
+          scaleY: { from: motion.rest.scaleY, to: motion.breathing.scaleY },
+          targets: hands,
+          y: { from: motion.rest.y, to: motion.breathing.y },
+          yoyo: true,
+        });
+      },
+      scaleX: motion.rest.scaleX,
+      scaleY: motion.rest.scaleY,
+      targets: hands,
+      x: motion.rest.x,
+      y: motion.rest.y,
+    });
+  }
+
+  drawVignette(scene, highContrast);
+}
+
+function describePose(model: BoardModel): string {
+  if (model.pose === 'closed') {
+    return 'Les deux mains sont fermées.';
+  }
+  if (model.pose === 'human-victory') {
+    return 'Le joueur célèbre sa victoire avec un pouce levé.';
+  }
+  if (model.pose === 'ai-victory') {
+    return "L'ordinateur célèbre sa victoire avec un pouce levé.";
+  }
+  return `Les mains sont ouvertes : ${model.ai.revealedCount} caillou${plural(
+    model.ai.revealedCount,
+  )} pour l'ordinateur et ${model.human.revealedCount} pour vous.`;
 }
 
 function drawHandStones(

@@ -1,7 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
+import { DEFAULT_PREFERENCES } from '../features/settings/preferences.js';
 import { App } from './App';
+import { GameSettingsPanel } from './GameSettingsPanel.js';
 
 describe('ThreeStone application shell', () => {
   it('presents the focused home and keeps secondary settings in navigation', () => {
@@ -18,5 +20,19 @@ describe('ThreeStone application shell', () => {
     expect(html).not.toContain('Trois cailloux.');
     expect(html).not.toContain('Première partie');
     expect(html).not.toContain('Réglez votre partie');
+  });
+
+  it('does not expose audio controls because the game is fully silent', () => {
+    const html = renderToStaticMarkup(
+      <GameSettingsPanel
+        onClose={() => undefined}
+        onPreferences={() => undefined}
+        preferences={DEFAULT_PREFERENCES}
+      />,
+    );
+
+    expect(html).not.toContain('Mode muet');
+    expect(html).not.toContain('Volume des effets');
+    expect(html).not.toContain('sons des boutons');
   });
 });

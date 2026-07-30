@@ -110,6 +110,7 @@ test('creates a username account, finishes a solo game and persists its result',
   await expect(page.getByRole('status')).toContainText('Préparation de la table');
   await expect(page.getByRole('region', { name: 'Ordinateur' })).toBeVisible();
   await expect(page.getByRole('region', { name: renamedUsername })).toBeVisible();
+  await expect(page.getByRole('img', { name: `Avatar de ${renamedUsername}` })).toBeVisible();
   await expect(page.getByText(/annonce en premier/i)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Valider mon choix' })).toBeVisible();
 
@@ -135,6 +136,15 @@ test('creates a username account, finishes a solo game and persists its result',
   }
 
   await expect(page.getByRole('button', { name: 'Rejouer' })).toBeVisible();
+  const humanWon = await page.getByRole('heading', { name: 'Victoire !' }).isVisible();
+  const winnerName = humanWon ? renamedUsername : 'Ordinateur';
+  await expect(
+    page.getByRole('img', { name: `Couronne de victoire de ${winnerName}` }),
+  ).toBeVisible();
+  await expect(page.getByRole('img', { name: /^Plateau de jeu\./ })).toHaveAttribute(
+    'aria-label',
+    /pouce levé/,
+  );
   await page.getByRole('button', { name: 'Retour à l’accueil' }).click();
   await expect(page.getByRole('button', { name: 'Commencez une partie' })).toBeVisible();
 

@@ -13,44 +13,10 @@ export function GameSettingsPanel({ onClose, onPreferences, preferences }: GameS
       <div className={styles.panelHeading}>
         <p className={styles.eyebrow}>Confort de jeu</p>
         <h1 id="settings-title">Paramètres du jeu</h1>
-        <p>Adaptez l’ambiance et l’affichage. Ces choix sont conservés sur cet appareil.</p>
+        <p>Adaptez les mouvements et l’affichage. Ces choix sont conservés sur cet appareil.</p>
       </div>
 
       <div className={styles.settingsList}>
-        <label className={styles.settingRow}>
-          <span>
-            <strong>Mode muet</strong>
-            <small>Coupez les sons des boutons de jeu.</small>
-          </span>
-          <input
-            type="checkbox"
-            checked={preferences.muted}
-            onChange={(event) => onPreferences({ ...preferences, muted: event.target.checked })}
-          />
-        </label>
-
-        <label className={styles.settingRow}>
-          <span>
-            <strong>Volume des effets</strong>
-            <small>Réglez l’intensité des sons des boutons.</small>
-          </span>
-          <input
-            aria-label="Volume des effets"
-            disabled={preferences.muted}
-            max="1"
-            min="0"
-            step="0.1"
-            type="range"
-            value={preferences.soundVolume}
-            onChange={(event) =>
-              onPreferences({
-                ...preferences,
-                soundVolume: Number(event.target.value),
-              })
-            }
-          />
-        </label>
-
         <label className={styles.settingRow}>
           <span>
             <strong>Mouvements</strong>

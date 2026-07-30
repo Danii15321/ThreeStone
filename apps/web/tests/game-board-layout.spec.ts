@@ -8,16 +8,26 @@ interface BoardGeometry {
 }
 
 async function readGeometry(locator: Locator): Promise<BoardGeometry> {
-  const box = await locator.boundingBox();
+  let box: BoardGeometry | null = null;
+  await expect
+    .poll(
+      async () => {
+        box = await locator.evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          return {
+            height: rect.height,
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+          };
+        });
+        return box.width > 0 && box.height > 0;
+      },
+      { message: 'Le plateau doit rester mesurable pendant les animations' },
+    )
+    .toBe(true);
 
-  expect(box, 'Le plateau doit rester mesurable pendant les animations').not.toBeNull();
-
-  return {
-    height: box!.height,
-    left: box!.x,
-    top: box!.y,
-    width: box!.width,
-  };
+  return box!;
 }
 
 function expectStableGeometry(actual: BoardGeometry, expected: BoardGeometry): void {

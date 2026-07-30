@@ -86,6 +86,30 @@
   box-shadow: inset 0 0 1.5rem rgb(255 218 157 / 6%);
 }
 
+.winnerProfile .identity {
+  border-color: #f4ca72;
+  box-shadow:
+    inset 0 0 1.5rem rgb(255 218 157 / 12%),
+    0 0 1.6rem rgb(228 166 73 / 38%);
+}
+
+.winnerCrown {
+  position: absolute;
+  z-index: 2;
+  top: -1.45rem;
+  left: 50%;
+  color: #f5c766;
+  filter: drop-shadow(0 0.18rem 0 #7b3f1f) drop-shadow(0 0.35rem 0.45rem rgb(0 0 0 / 48%));
+  font-family: Georgia, serif;
+  font-size: 2rem;
+  line-height: 1;
+  transform: translateX(-50%) rotate(-4deg);
+  transform-origin: 50% 100%;
+  animation:
+    crown-in 520ms cubic-bezier(0.18, 0.9, 0.25, 1.35) both,
+    crown-float 1.8s 520ms ease-in-out infinite alternate;
+}
+
 .identity > strong {
   overflow: hidden;
   width: 100%;
@@ -469,6 +493,24 @@
   }
 }
 
+@keyframes crown-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-0.9rem) rotate(-16deg) scale(0.45);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(-50%) rotate(-4deg) scale(1);
+  }
+}
+
+@keyframes crown-float {
+  to {
+    transform: translateX(-50%) translateY(-0.16rem) rotate(4deg) scale(1.04);
+  }
+}
+
 @media (max-width: 48rem) {
   .playerProfile {
     gap: 0.35rem;
@@ -595,6 +637,10 @@
 
 @media (prefers-reduced-motion: reduce) {
   .predictionBubble {
+    animation: none;
+  }
+
+  .winnerCrown {
     animation: none;
   }
 

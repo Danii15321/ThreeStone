@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { PlayerProfile } from '@three-stone/api-contracts';
 
 import logoUrl from '../assets/threestone-logo.jpg';
 import { ApiClient, type SessionSnapshot } from '../adapters/http/api-client.js';
@@ -28,6 +29,14 @@ export function App() {
   const [sequenceNumber, setSequenceNumber] = useState(() => readSequenceNumber());
   const [gameKey, setGameKey] = useState(1);
   const [session, setSession] = useState<SessionSnapshot | null>(null);
+  const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null);
+
+  const updateSession = useCallback((nextSession: SessionSnapshot | null): void => {
+    setSession(nextSession);
+    if (!nextSession) {
+      setPlayerProfile(null);
+    }
+  }, []);
 
   const updatePreferences = useCallback((next: UserPreferences): void => {
     setPreferences(next);
@@ -50,18 +59,42 @@ export function App() {
       .getSession()
       .then((nextSession) => {
         if (!cancelled) {
-          setSession(nextSession);
+          updateSession(nextSession);
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setSession(null);
+          updateSession(null);
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [apiClient]);
+  }, [apiClient, updateSession]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!session) {
+      return;
+    }
+
+    void apiClient
+      .getProfile()
+      .then((profile) => {
+        if (!cancelled) {
+          setPlayerProfile(profile);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPlayerProfile(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiClient, session]);
 
   function finishGame(snapshot: SoloSnapshot): void {
     setSequenceNumber((current) => {
@@ -86,7 +119,11 @@ export function App() {
         onExit={() => setView('home')}
         onFinished={finishGame}
         onReplay={() => setGameKey((current) => current + 1)}
-        playerAvatarUrl={session?.user.image}
+        playerAvatarUrl={
+          playerProfile?.hasAvatar
+            ? apiClient.profileAvatarUrl(playerProfile.version)
+            : session?.user.image
+        }
         playerName={session?.user.displayUsername ?? 'Joueur'}
         preferences={preferences}
         sequenceNumber={sequenceNumber}
@@ -130,8 +167,9 @@ export function App() {
         <AccountPanel
           client={apiClient}
           onClose={() => setView('home')}
+          onProfile={setPlayerProfile}
           onPreferences={updatePreferences}
-          onSession={setSession}
+          onSession={updateSession}
           preferences={preferences}
           session={session}
         />

@@ -18,6 +18,7 @@ import styles from './AccountPanel.module.css';
 interface AccountPanelProps {
   readonly client: ApiClient;
   readonly onClose: () => void;
+  readonly onProfile: (profile: PlayerProfile | null) => void;
   readonly onPreferences: (preferences: UserPreferences) => void;
   readonly onSession: (session: SessionSnapshot | null) => void;
   readonly preferences: UserPreferences;
@@ -123,6 +124,7 @@ function AnonymousAccount({ client, onClose, onSession }: AccountPanelProps) {
 function AuthenticatedAccount({
   client,
   onClose,
+  onProfile,
   onPreferences,
   onSession,
   session,
@@ -144,6 +146,7 @@ function AuthenticatedAccount({
       .then(([nextProfile, remotePreferences, nextStats, nextHistory]) => {
         if (cancelled) return;
         setProfile(nextProfile);
+        onProfile(nextProfile);
         onPreferences(fromRemotePreferences(remotePreferences));
         setStats(nextStats);
         setHistory(nextHistory);
@@ -154,7 +157,12 @@ function AuthenticatedAccount({
     return () => {
       cancelled = true;
     };
-  }, [client, onPreferences, session.user.id]);
+  }, [client, onPreferences, onProfile, session.user.id]);
+
+  function updateVisibleProfile(nextProfile: PlayerProfile): void {
+    setProfile(nextProfile);
+    onProfile(nextProfile);
+  }
 
   async function signOut(): Promise<void> {
     try {
@@ -194,7 +202,7 @@ function AuthenticatedAccount({
         <PrivacyView
           client={client}
           onMessage={setMessage}
-          onProfile={setProfile}
+          onProfile={updateVisibleProfile}
           onSession={onSession}
           profile={profile}
           session={session}

@@ -36,4 +36,22 @@ describe('Phaser board model', () => {
       dropStone: 'human',
     });
   });
+
+  it.each(['ai-victory', 'human-victory'] as const)(
+    'keeps the final winning pose available for %s',
+    (pose) => {
+      expect(
+        createBoardModel({
+          pose,
+          reveal: null,
+          reserves: { ai: pose === 'ai-victory' ? 0 : 1, human: pose === 'human-victory' ? 0 : 1 },
+          dropStone: null,
+        }),
+      ).toMatchObject({
+        pose,
+        ai: { revealedCount: 0 },
+        human: { revealedCount: 0 },
+      });
+    },
+  );
 });

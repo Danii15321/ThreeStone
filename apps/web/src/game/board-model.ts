@@ -1,6 +1,8 @@
+export type BoardPose = 'ai-victory' | 'closed' | 'human-victory' | 'revealed';
+
 export interface BoardInput {
   readonly dropStone: 'ai' | 'human' | null;
-  readonly pose: 'closed' | 'revealed';
+  readonly pose: BoardPose;
   readonly reveal: {
     readonly choices: Readonly<{ ai: number; human: number }>;
   } | null;
@@ -8,7 +10,7 @@ export interface BoardInput {
 }
 
 export interface BoardModel {
-  readonly pose: 'closed' | 'revealed';
+  readonly pose: BoardPose;
   readonly ai: {
     readonly revealedCount: number;
     readonly reserve: number;

@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { createBoardModel } from '../../game/board-model.js';
 import { PhaserBoard } from '../../game/PhaserBoard.js';
 import type { UserPreferences } from '../settings/preferences.js';
-import { playFeedbackCue, resumeGameAudio, selectButtonFeedbackCue } from './audio-feedback.js';
 import { normalizePredictionValue } from './game-controls.js';
 import {
   advanceRoundPresentation,
@@ -85,9 +84,15 @@ export function GameScreen({
   const boardPose =
     presentation?.stage === 'revealed' || presentation?.stage === 'resolved'
       ? 'revealed'
-      : 'closed';
+      : snapshot.phase === 'finished' && presentation === null
+        ? snapshot.winner === 'human'
+          ? 'human-victory'
+          : 'ai-victory'
+        : 'closed';
   const boardDropStone = presentation?.stage === 'resolved' ? presentation.dropStone : null;
   const boardReveal = presentation?.reveal ?? null;
+  const finalWinner =
+    snapshot.phase === 'finished' && presentation === null ? snapshot.winner : null;
   const boardModel = createBoardModel({
     dropStone: boardDropStone,
     pose: boardPose,
@@ -120,15 +125,6 @@ export function GameScreen({
     if (action.type === 'choose-hidden') {
       setSelectedStones(new Set());
     }
-    if (!preferences.muted) {
-      playFeedbackCue(
-        selectButtonFeedbackCue(
-          action.type === 'choose-hidden' ? 'choice-confirmed' : 'prediction-confirmed',
-        ),
-        preferences.soundVolume,
-      );
-    }
-
     if (
       transition.events.some((event) => event.type === 'hands-revealed') &&
       nextSnapshot.lastReveal
@@ -151,10 +147,6 @@ export function GameScreen({
   }
 
   function toggleStone(index: number): void {
-    resumeGameAudio();
-    if (!preferences.muted) {
-      playFeedbackCue(selectButtonFeedbackCue('stone-toggle'), preferences.soundVolume);
-    }
     setSelectedStones((current) => {
       const next = new Set(current);
       if (next.has(index)) {
@@ -201,6 +193,7 @@ export function GameScreen({
             prediction={visiblePredictions.ai}
             reserve={shownReserves.ai}
             seat="ai"
+            winner={finalWinner === 'ai'}
           />
           <PlayerProfile
             avatarUrl={playerAvatarUrl}
@@ -212,6 +205,7 @@ export function GameScreen({
             prediction={visiblePredictions.human}
             reserve={shownReserves.human}
             seat="human"
+            winner={finalWinner === 'human'}
           />
         </div>
       </section>
@@ -281,6 +275,7 @@ interface PlayerProfileProps {
   readonly prediction: number | null;
   readonly reserve: number;
   readonly seat: GameSeat;
+  readonly winner: boolean;
 }
 
 function PlayerProfile({
@@ -290,18 +285,28 @@ function PlayerProfile({
   prediction,
   reserve,
   seat,
+  winner,
 }: PlayerProfileProps) {
   return (
     <section
       className={`${styles.playerProfile} ${
         seat === 'human' ? styles.humanProfile : styles.aiProfile
-      }`}
+      } ${winner ? styles.winnerProfile : ''}`}
       aria-label={name}
     >
       <div className={styles.identity}>
+        {winner ? (
+          <span
+            aria-label={`Couronne de victoire de ${name}`}
+            className={styles.winnerCrown}
+            role="img"
+          >
+            ♛
+          </span>
+        ) : null}
         <div className={styles.avatar}>
           {avatarUrl ? (
-            <img alt="" src={avatarUrl} />
+            <img alt={`Avatar de ${name}`} src={avatarUrl} />
           ) : (
             <span aria-hidden="true">{seat === 'ai' ? '✦' : playerInitial(name)}</span>
           )}
