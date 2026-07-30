@@ -2,9 +2,18 @@ export const PLAYER_IDS = ['player-one', 'player-two'] as const;
 export const RULES_VERSION = '1.0.0' as const;
 
 export type PlayerId = (typeof PLAYER_IDS)[number];
-export type GamePhase = 'hidden-choices' | 'first-prediction' | 'second-prediction' | 'finished';
+export type GamePhase =
+  'hidden-choices' | 'first-prediction' | 'second-prediction' | 'finished' | 'cancelled';
 export type Reserve = number;
 export type Prediction = number;
+export type TerminalReason =
+  | 'reserve-empty'
+  | 'hidden-choice-timeout'
+  | 'both-hidden-choice-timeout'
+  | 'prediction-timeout'
+  | 'abandon'
+  | 'disconnect'
+  | 'technical-cancellation';
 
 export interface ChooseHiddenAction {
   readonly type: 'choose-hidden';
@@ -27,10 +36,12 @@ export interface RoundState {
 
 export interface PublicRoundResult {
   readonly roundNumber: number;
+  readonly initiative: PlayerId;
   readonly choices: Readonly<Record<PlayerId, number>>;
   readonly predictions: Readonly<Record<PlayerId, Prediction>>;
   readonly total: number;
   readonly winner: PlayerId | null;
+  readonly reservesAfter: Readonly<Record<PlayerId, Reserve>>;
 }
 
 export interface GameState {
@@ -40,11 +51,13 @@ export interface GameState {
   readonly sequenceNumber: number;
   readonly phase: GamePhase;
   readonly roundNumber: number;
+  readonly initialInitiative: PlayerId;
   readonly initiative: PlayerId;
   readonly reserves: Readonly<Record<PlayerId, Reserve>>;
   readonly round: RoundState;
   readonly revealedRounds: readonly PublicRoundResult[];
   readonly winner: PlayerId | null;
+  readonly terminalReason: TerminalReason | null;
   readonly actionHistory: readonly GameAction[];
   readonly eventHistory: readonly DomainEvent[];
   readonly version: number;
@@ -108,7 +121,16 @@ export type DomainEvent =
       readonly type: 'game-won';
       readonly gameId: string;
       readonly playerId: PlayerId;
+      readonly reason: Exclude<
+        TerminalReason,
+        'both-hidden-choice-timeout' | 'technical-cancellation'
+      >;
       readonly roundNumber: number;
+    }
+  | {
+      readonly type: 'game-cancelled';
+      readonly gameId: string;
+      readonly reason: 'both-hidden-choice-timeout' | 'technical-cancellation';
     };
 
 export type DomainErrorCode =
@@ -120,7 +142,8 @@ export type DomainErrorCode =
   | 'hidden-choice-already-submitted'
   | 'not-your-turn'
   | 'invalid-prediction'
-  | 'duplicate-prediction';
+  | 'duplicate-prediction'
+  | 'game-not-terminal';
 
 export interface DomainError {
   readonly code: DomainErrorCode;
@@ -164,6 +187,7 @@ export interface PublicGameView {
   readonly predictions: Readonly<Partial<Record<PlayerId, Prediction>>>;
   readonly revealedRounds: readonly PublicRoundResult[];
   readonly winner: PlayerId | null;
+  readonly terminalReason: TerminalReason | null;
   readonly version: number;
 }
 
@@ -178,6 +202,33 @@ export interface PrivateObservation {
   readonly predictions: Readonly<Partial<Record<PlayerId, Prediction>>>;
   readonly revealedRounds: readonly PublicRoundResult[];
   readonly winner: PlayerId | null;
+  readonly terminalReason: TerminalReason | null;
   readonly ownHiddenChoice: number | null;
   readonly legalActions: readonly GameAction[];
 }
+
+export interface GameTranscript {
+  readonly gameId: string;
+  readonly rulesVersion: typeof RULES_VERSION;
+  readonly seed: number;
+  readonly initialInitiative: PlayerId;
+  readonly winner: PlayerId | null;
+  readonly terminalReason: TerminalReason;
+  readonly rounds: readonly PublicRoundResult[];
+}
+
+export interface MultiplayerSessionState {
+  readonly sessionId: string;
+  readonly score: Readonly<Record<PlayerId, number>>;
+  readonly recordedGameIds: readonly string[];
+}
+
+export type SessionTransitionResult =
+  | {
+      readonly ok: true;
+      readonly session: MultiplayerSessionState;
+    }
+  | {
+      readonly ok: false;
+      readonly error: DomainError;
+    };

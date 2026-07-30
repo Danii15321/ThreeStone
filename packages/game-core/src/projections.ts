@@ -11,7 +11,7 @@ const otherPlayer = (playerId: PlayerId): PlayerId =>
   playerId === 'player-one' ? 'player-two' : 'player-one';
 
 export function getLegalActions(state: GameState, playerId: PlayerId): readonly GameAction[] {
-  if (state.phase === 'finished') {
+  if (state.phase === 'finished' || state.phase === 'cancelled') {
     return [];
   }
 
@@ -57,6 +57,7 @@ export function getPublicView(state: GameState): PublicGameView {
     predictions: { ...state.round.predictions },
     revealedRounds: state.revealedRounds.map(copyRevealedRound),
     winner: state.winner,
+    terminalReason: state.terminalReason,
     version: state.version,
   };
 }
@@ -74,6 +75,7 @@ export function getPrivateObservation(state: GameState, playerId: PlayerId): Pri
     predictions: view.predictions,
     revealedRounds: view.revealedRounds,
     winner: view.winner,
+    terminalReason: view.terminalReason,
     ownHiddenChoice: state.round.hiddenChoices[playerId] ?? null,
     legalActions: getLegalActions(state, playerId),
   };
@@ -86,6 +88,7 @@ function copyRevealedRound(
     ...round,
     choices: { ...round.choices },
     predictions: { ...round.predictions },
+    reservesAfter: { ...round.reservesAfter },
   };
 }
 

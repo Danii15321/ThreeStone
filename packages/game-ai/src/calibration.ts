@@ -64,10 +64,12 @@ function createCalibrationObservation(): PrivateObservation {
     const opponentChoice = index < 10 ? 1 : index - 10;
     return {
       roundNumber: index + 1,
+      initiative: index % 2 === 0 ? 'player-one' : 'player-two',
       choices: { 'player-one': 1, 'player-two': opponentChoice },
       predictions: { 'player-one': 5, 'player-two': 6 },
       total: 1 + opponentChoice,
       winner: null,
+      reservesAfter: { 'player-one': 3, 'player-two': 3 },
     };
   });
   const legalActions: readonly GameAction[] = Array.from({ length: 7 }, (_, value) => ({
@@ -86,6 +88,7 @@ function createCalibrationObservation(): PrivateObservation {
     predictions: {},
     revealedRounds: history,
     winner: null,
+    terminalReason: null,
     ownHiddenChoice: 1,
     legalActions,
   };

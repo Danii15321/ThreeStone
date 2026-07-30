@@ -1,10 +1,20 @@
 export {
+  abandonGame,
   applyGameAction,
+  cancelGame,
   createGame,
   createNextGame,
+  expireHiddenChoiceDeadline,
+  expirePredictionDeadline,
+  forfeitGame,
   replayGame,
   validateGameState,
 } from './game-engine.js';
+export {
+  buildGameTranscript,
+  createMultiplayerSession,
+  recordSessionGame,
+} from './multiplayer-domain.js';
 export { getLegalActions, getPrivateObservation, getPublicView } from './projections.js';
 export { PLAYER_IDS, RULES_VERSION } from './types.js';
 export type {
@@ -17,6 +27,8 @@ export type {
   GameCreation,
   GamePhase,
   GameState,
+  GameTranscript,
+  MultiplayerSessionState,
   PlayerId,
   Prediction,
   PredictAction,
@@ -26,6 +38,8 @@ export type {
   ReplayResult,
   Reserve,
   RoundState,
+  SessionTransitionResult,
+  TerminalReason,
   TransitionResult,
   ValidationResult,
 } from './types.js';

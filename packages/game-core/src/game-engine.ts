@@ -48,11 +48,13 @@ export function createGame(options: CreateGameOptions): GameCreation {
     sequenceNumber: options.sequenceNumber,
     phase: 'hidden-choices',
     roundNumber: 1,
+    initialInitiative: initiative,
     initiative,
     reserves: { 'player-one': 3, 'player-two': 3 },
     round: EMPTY_ROUND,
     revealedRounds: [],
     winner: null,
+    terminalReason: null,
     actionHistory: [],
     eventHistory: [event],
     version: 0,
@@ -78,7 +80,7 @@ export function applyGameAction(state: GameState, action: unknown): TransitionRe
   if (!isGameAction(action)) {
     return failure('invalid-action', 'The submitted value is not a supported game action.');
   }
-  if (state.phase === 'finished') {
+  if (state.phase === 'finished' || state.phase === 'cancelled') {
     return failure('game-finished', 'A finished game cannot accept another action.');
   }
   if (action.type === 'choose-hidden') {
@@ -209,10 +211,12 @@ function resolveRound(
 
   const roundResult: PublicRoundResult = {
     roundNumber: state.roundNumber,
+    initiative: state.initiative,
     choices: { ...choices },
     predictions: { ...predictions },
     total,
     winner: roundWinner,
+    reservesAfter: { ...reserves },
   };
   const winner = roundWinner !== null && reserves[roundWinner] === 0 ? roundWinner : null;
 
@@ -221,6 +225,7 @@ function resolveRound(
       type: 'game-won',
       gameId: state.gameId,
       playerId: winner,
+      reason: 'reserve-empty',
       roundNumber: state.roundNumber,
     });
     return success(state, action, events, {
@@ -229,6 +234,7 @@ function resolveRound(
       round: { hiddenChoices: choices, predictions },
       revealedRounds: [...state.revealedRounds, roundResult],
       winner,
+      terminalReason: 'reserve-empty',
     });
   }
 
@@ -252,7 +258,14 @@ function resolveRound(
 type StateChanges = Partial<
   Pick<
     GameState,
-    'phase' | 'roundNumber' | 'initiative' | 'reserves' | 'round' | 'revealedRounds' | 'winner'
+    | 'phase'
+    | 'roundNumber'
+    | 'initiative'
+    | 'reserves'
+    | 'round'
+    | 'revealedRounds'
+    | 'winner'
+    | 'terminalReason'
   >
 >;
 
@@ -302,6 +315,149 @@ export function replayGame(
   return { ok: true, state };
 }
 
+export function expireHiddenChoiceDeadline(
+  state: GameState,
+  expectedRoundNumber = state.roundNumber,
+): TransitionResult {
+  const validation = validateGameState(state);
+  if (!validation.valid) {
+    return { ok: false, error: validation.error };
+  }
+  if (state.phase === 'finished' || state.phase === 'cancelled') {
+    return failure('game-finished', 'A terminal game cannot expire another deadline.');
+  }
+  if (state.roundNumber !== expectedRoundNumber) {
+    return { ok: true, state, events: [] };
+  }
+
+  const submitted = PLAYER_IDS.filter(
+    (playerId) => state.round.hiddenChoices[playerId] !== undefined,
+  );
+  if (submitted.length === 2) {
+    return { ok: true, state, events: [] };
+  }
+  if (state.phase !== 'hidden-choices') {
+    return failure('wrong-phase', 'The hidden choice deadline is not active.');
+  }
+  if (submitted.length === 0) {
+    return cancelWithReason(state, 'both-hidden-choice-timeout');
+  }
+  return winByForfeit(state, submitted[0]!, 'hidden-choice-timeout');
+}
+
+export interface PredictionDeadlineIdentity {
+  readonly roundNumber: number;
+  readonly playerId: PlayerId;
+}
+
+export function expirePredictionDeadline(
+  state: GameState,
+  expected?: PredictionDeadlineIdentity,
+): TransitionResult {
+  const validation = validateGameState(state);
+  if (!validation.valid) {
+    return { ok: false, error: validation.error };
+  }
+  if (state.phase === 'finished' || state.phase === 'cancelled') {
+    return failure('game-finished', 'A terminal game cannot expire another deadline.');
+  }
+  if (state.phase !== 'first-prediction' && state.phase !== 'second-prediction') {
+    return failure('wrong-phase', 'No prediction deadline is active.');
+  }
+
+  const activePlayer =
+    state.phase === 'first-prediction' ? state.initiative : opposite(state.initiative);
+  if (
+    expected !== undefined &&
+    (expected.roundNumber !== state.roundNumber || expected.playerId !== activePlayer)
+  ) {
+    return { ok: true, state, events: [] };
+  }
+  return winByForfeit(state, opposite(activePlayer), 'prediction-timeout');
+}
+
+export function abandonGame(state: GameState, playerId: PlayerId): TransitionResult {
+  return forfeitGame(state, playerId, 'abandon');
+}
+
+export function forfeitGame(
+  state: GameState,
+  losingPlayerId: PlayerId,
+  reason: 'abandon' | 'disconnect',
+): TransitionResult {
+  const validation = validateGameState(state);
+  if (!validation.valid) {
+    return { ok: false, error: validation.error };
+  }
+  if (state.phase === 'finished' || state.phase === 'cancelled') {
+    return failure('game-finished', 'A terminal game cannot be forfeited.');
+  }
+  return winByForfeit(state, opposite(losingPlayerId), reason);
+}
+
+export function cancelGame(state: GameState, operationalReason: string): TransitionResult {
+  const validation = validateGameState(state);
+  if (!validation.valid) {
+    return { ok: false, error: validation.error };
+  }
+  if (operationalReason.trim().length === 0) {
+    return failure('invalid-action', 'A technical cancellation requires an operational reason.');
+  }
+  if (state.phase === 'finished' || state.phase === 'cancelled') {
+    return failure('game-finished', 'A terminal game cannot be cancelled again.');
+  }
+  return cancelWithReason(state, 'technical-cancellation');
+}
+
+function winByForfeit(
+  state: GameState,
+  winner: PlayerId,
+  reason: 'hidden-choice-timeout' | 'prediction-timeout' | 'abandon' | 'disconnect',
+): TransitionResult {
+  const event: DomainEvent = {
+    type: 'game-won',
+    gameId: state.gameId,
+    playerId: winner,
+    reason,
+    roundNumber: state.roundNumber,
+  };
+  return systemSuccess(state, [event], {
+    phase: 'finished',
+    winner,
+    terminalReason: reason,
+  });
+}
+
+function cancelWithReason(
+  state: GameState,
+  reason: 'both-hidden-choice-timeout' | 'technical-cancellation',
+): TransitionResult {
+  const event: DomainEvent = {
+    type: 'game-cancelled',
+    gameId: state.gameId,
+    reason,
+  };
+  return systemSuccess(state, [event], {
+    phase: 'cancelled',
+    winner: null,
+    terminalReason: reason,
+  });
+}
+
+function systemSuccess(
+  state: GameState,
+  events: readonly DomainEvent[],
+  changes: StateChanges,
+): TransitionResult {
+  const next = freezeState({
+    ...state,
+    ...changes,
+    eventHistory: [...state.eventHistory, ...events],
+    version: state.version + 1,
+  });
+  return { ok: true, state: next, events };
+}
+
 export function validateGameState(input: unknown): ValidationResult {
   if (!isRecord(input)) {
     return invalidState('A game state must be an object.');
@@ -316,6 +472,7 @@ export function validateGameState(input: unknown): ValidationResult {
     !isSafeInteger(input.version) ||
     input.version < 0 ||
     !isPlayer(input.initiative) ||
+    !isPlayer(input.initialInitiative) ||
     !isPhase(input.phase) ||
     !isRecord(input.reserves) ||
     !isReserve(input.reserves['player-one']) ||
@@ -326,7 +483,8 @@ export function validateGameState(input: unknown): ValidationResult {
     !Array.isArray(input.revealedRounds) ||
     !Array.isArray(input.actionHistory) ||
     !Array.isArray(input.eventHistory) ||
-    !(input.winner === null || isPlayer(input.winner))
+    !(input.winner === null || isPlayer(input.winner)) ||
+    !(input.terminalReason === null || isTerminalReason(input.terminalReason))
   ) {
     return invalidState('The game state violates its structural invariants.');
   }
@@ -363,19 +521,40 @@ export function validateGameState(input: unknown): ValidationResult {
     return invalidState('Predictions in the same round must be distinct.');
   }
 
-  const phaseIsConsistent =
+  const activePhaseIsConsistent =
     (input.phase === 'hidden-choices' && choiceCount < 2 && predictionCount === 0) ||
     (input.phase === 'first-prediction' && choiceCount === 2 && predictionCount === 0) ||
     (input.phase === 'second-prediction' &&
       choiceCount === 2 &&
       predictionCount === 1 &&
-      input.round.predictions[input.initiative] !== undefined) ||
-    (input.phase === 'finished' &&
-      choiceCount === 2 &&
-      predictionCount === 2 &&
-      input.winner !== null &&
-      input.reserves[input.winner] === 0);
-  if (!phaseIsConsistent || (input.phase !== 'finished' && input.winner !== null)) {
+      input.round.predictions[input.initiative] !== undefined);
+  const roundProgressIsPossible =
+    (choiceCount < 2 && predictionCount === 0) ||
+    (choiceCount === 2 &&
+      (predictionCount === 0 ||
+        (predictionCount === 1 && input.round.predictions[input.initiative] !== undefined) ||
+        predictionCount === 2));
+  const finishedIsConsistent =
+    input.phase === 'finished' &&
+    input.winner !== null &&
+    input.terminalReason !== null &&
+    input.terminalReason !== 'both-hidden-choice-timeout' &&
+    input.terminalReason !== 'technical-cancellation' &&
+    roundProgressIsPossible &&
+    (input.terminalReason !== 'reserve-empty' ||
+      (choiceCount === 2 && predictionCount === 2 && input.reserves[input.winner] === 0)) &&
+    (input.terminalReason !== 'hidden-choice-timeout' || choiceCount === 1) &&
+    (input.terminalReason !== 'prediction-timeout' || (choiceCount === 2 && predictionCount < 2));
+  const cancelledIsConsistent =
+    input.phase === 'cancelled' &&
+    input.winner === null &&
+    (input.terminalReason === 'both-hidden-choice-timeout' ||
+      input.terminalReason === 'technical-cancellation') &&
+    roundProgressIsPossible &&
+    (input.terminalReason !== 'both-hidden-choice-timeout' || choiceCount === 0);
+  const activeIsConsistent =
+    activePhaseIsConsistent && input.winner === null && input.terminalReason === null;
+  if (!activeIsConsistent && !finishedIsConsistent && !cancelledIsConsistent) {
     return invalidState('The phase does not match the current round data.');
   }
 
@@ -411,7 +590,20 @@ function isPhase(value: unknown): value is GamePhase {
     value === 'hidden-choices' ||
     value === 'first-prediction' ||
     value === 'second-prediction' ||
-    value === 'finished'
+    value === 'finished' ||
+    value === 'cancelled'
+  );
+}
+
+function isTerminalReason(value: unknown): value is GameState['terminalReason'] {
+  return (
+    value === 'reserve-empty' ||
+    value === 'hidden-choice-timeout' ||
+    value === 'both-hidden-choice-timeout' ||
+    value === 'prediction-timeout' ||
+    value === 'abandon' ||
+    value === 'disconnect' ||
+    value === 'technical-cancellation'
   );
 }
 
@@ -442,6 +634,7 @@ function freezeState(state: GameState): GameState {
   for (const round of state.revealedRounds) {
     Object.freeze(round.choices);
     Object.freeze(round.predictions);
+    Object.freeze(round.reservesAfter);
     Object.freeze(round);
   }
   Object.freeze(state.reserves);
