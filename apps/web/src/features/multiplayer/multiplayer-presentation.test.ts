@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { RoomSnapshot } from '@three-stone/protocol';
 
-import { statusMessage } from './multiplayer-presentation.js';
+import { reactionLabel, statusMessage } from './multiplayer-presentation.js';
 
 const snapshot: RoomSnapshot = {
   actionDeadline: 1_775_000_020_000,
@@ -15,6 +15,10 @@ const snapshot: RoomSnapshot = {
   predictions: {},
   protocolVersion: 2,
   ready: { 'player-one': true, 'player-two': true },
+  rematch: {
+    accepted: { 'player-one': false, 'player-two': false },
+    deadline: null,
+  },
   reserves: { 'player-one': 3, 'player-two': 3 },
   revealedRounds: [],
   roomId: '019b15db-9829-7b46-a6a5-6cfcb1ca84c5',
@@ -31,5 +35,14 @@ describe('multiplayer presentation', () => {
   it('announces an opponent reconnection without hiding the running phase deadline', () => {
     expect(statusMessage(snapshot, undefined, 'player-one')).toBe('Bjorn se reconnecte…');
     expect(snapshot.actionDeadline).toBe(1_775_000_020_000);
+  });
+
+  it('gives every controlled reaction a French text equivalent', () => {
+    expect((['well-played', 'nice-bluff', 'oops', 'rematch'] as const).map(reactionLabel)).toEqual([
+      'Bien joué !',
+      'Joli bluff !',
+      'Oups !',
+      'Revanche ?',
+    ]);
   });
 });

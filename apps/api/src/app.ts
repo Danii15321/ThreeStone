@@ -5,6 +5,8 @@ import {
   healthResponseSchema,
   joinMultiplayerRoomRequestSchema,
   joinMultiplayerRoomResponseSchema,
+  multiplayerGameHistoryQuerySchema,
+  multiplayerGameHistorySchema,
   playerPreferencesSchema,
   playerProfileSchema,
   readinessResponseSchema,
@@ -34,6 +36,7 @@ import {
   RoomUnavailableError,
   type MultiplayerAdmissionService,
 } from './application/multiplayer-admission-service.js';
+import type { MultiplayerHistoryService } from './application/multiplayer-history-service.js';
 import type { ProfileService } from './application/profile-service.js';
 import type { SoloResultsService } from './application/solo-results-service.js';
 import type { AuthGateway } from './auth/auth-gateway.js';
@@ -55,6 +58,7 @@ export interface ApiDependencies {
   authRateLimiter: RateLimiter;
   maxRequestBodyBytes: number;
   multiplayerAdmissionService: Pick<MultiplayerAdmissionService, 'create' | 'join' | 'refresh'>;
+  multiplayerHistoryService: MultiplayerHistoryService;
   multiplayerRateLimiter: RateLimiter;
   profileService: ProfileService;
   readinessProbe: () => Promise<boolean>;
@@ -294,6 +298,14 @@ export function createApp(dependencies?: ApiDependencies) {
       const query = soloResultHistoryQuerySchema.parse(context.req.query());
       const history = await dependencies.resultsService.history(context.get('userId'), query);
       return context.json(soloResultHistorySchema.parse(history));
+    });
+    app.get('/api/results/multiplayer', async (context) => {
+      const query = multiplayerGameHistoryQuerySchema.parse(context.req.query());
+      const history = await dependencies.multiplayerHistoryService.list(
+        context.get('userId'),
+        query,
+      );
+      return context.json(multiplayerGameHistorySchema.parse(history));
     });
     app.get('/api/stats/solo', async (context) =>
       context.json(

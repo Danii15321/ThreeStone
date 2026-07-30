@@ -20,12 +20,14 @@ export type {
 export {
   createPublicSnapshot,
   createSeatObservation,
+  roomReactionSchema,
   roomResumeTokenSchema,
   roomSnapshotSchema,
   seatObservationSchema,
 } from './snapshots.js';
 export type {
   PublicPlayer,
+  RoomReaction,
   RoomResumeToken,
   RoomSnapshot,
   SeatObservation,

@@ -7,7 +7,7 @@ import {
   type PublicRoundResult,
 } from '@three-stone/game-core';
 
-import { PROTOCOL_VERSION } from './commands.js';
+import { PROTOCOL_VERSION, reactionSchema } from './commands.js';
 
 const playerIdSchema = z.enum(PLAYER_IDS);
 const reserveSchema = z.number().int().min(0).max(3);
@@ -73,6 +73,10 @@ export const roomSnapshotSchema = z.strictObject({
     ])
     .nullable(),
   sessionScore: playerMap(scoreSchema),
+  rematch: z.strictObject({
+    accepted: playerMap(z.boolean()),
+    deadline: z.number().int().nonnegative().nullable(),
+  }),
 });
 
 export const seatObservationSchema = z.strictObject({
@@ -91,6 +95,16 @@ export const roomResumeTokenSchema = z.strictObject({
   token: z.string().regex(/^[A-Za-z0-9_-]{43,256}$/),
 });
 
+export const roomReactionSchema = z.strictObject({
+  protocolVersion: z.literal(PROTOCOL_VERSION),
+  type: z.literal('session.reaction'),
+  expiresAt: z.number().int().nonnegative(),
+  playerId: playerIdSchema,
+  reaction: reactionSchema,
+  sequence: z.number().int().nonnegative(),
+});
+
+export type RoomReaction = z.infer<typeof roomReactionSchema>;
 export type RoomSnapshot = z.infer<typeof roomSnapshotSchema>;
 export type RoomResumeToken = z.infer<typeof roomResumeTokenSchema>;
 export type SeatObservation = z.infer<typeof seatObservationSchema>;
@@ -106,6 +120,10 @@ export interface SnapshotContext {
   readonly sequence: number;
   readonly serverNow: number;
   readonly actionDeadline: number | null;
+  readonly rematch: {
+    readonly accepted: Readonly<Record<PlayerId, boolean>>;
+    readonly deadline: number | null;
+  };
   readonly sessionScore: Readonly<Record<PlayerId, number>>;
   readonly players: Readonly<Record<PlayerId, PublicPlayer>>;
   readonly ready: Readonly<Record<PlayerId, boolean>>;
@@ -130,6 +148,10 @@ export function createPublicSnapshot(state: GameState, context: SnapshotContext)
     winner: state.winner,
     terminalReason: state.terminalReason,
     sessionScore: { ...context.sessionScore },
+    rematch: {
+      accepted: { ...context.rematch.accepted },
+      deadline: context.rematch.deadline,
+    },
   });
 }
 

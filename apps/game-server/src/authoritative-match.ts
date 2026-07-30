@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 
 import {
   RULES_VERSION,
@@ -7,6 +7,7 @@ import {
   buildGameTranscript,
   cancelGame,
   createGame,
+  createNextGame,
   expireHiddenChoiceDeadline,
   expirePredictionDeadline,
   forfeitGame,
@@ -19,6 +20,7 @@ import {
   createCommandRejected,
   createPublicSnapshot,
   roomResumeTokenSchema,
+  roomReactionSchema,
   createSeatObservation,
   parseClientCommand,
   type ClientCommand,
@@ -26,6 +28,7 @@ import {
   type CommandErrorCode,
   type CommandRejected,
   type PublicPlayer,
+  type Reaction,
 } from '@three-stone/protocol';
 
 import {
@@ -36,102 +39,30 @@ import {
   hashResumeToken,
   minimum,
   normalizedCommandId,
+  participant,
   protocolVersionFrom,
+  publicPlayer,
   sameHash,
 } from './authoritative-match-support.js';
+import type {
+  AdmissionIdentity,
+  MatchConnection,
+  MatchDeadlines,
+  MatchDependencies,
+  MatchJoinResult,
+  MatchOptions,
+} from './authoritative-match-types.js';
+import { MultiplayerRoomSession } from './multiplayer-room-session.js';
 
-export interface MatchClock {
-  now(): number;
-}
-
-export interface AdmissionIdentity {
-  readonly avatarUrl: string | null;
-  readonly connectionGeneration: number;
-  readonly playerId: PlayerId;
-  readonly roomId: string;
-  readonly userId: string;
-  readonly username: string;
-}
-
-export interface MatchConnection {
-  readonly connectionId: string;
-  close?(): void;
-  send(type: string, payload: unknown): void;
-}
-
-export interface MatchDeadlines {
-  readonly disconnectBudgetMs: number;
-  readonly disconnectGraceMs: number;
-  readonly hiddenChoiceMs: number;
-  readonly predictionMs: number;
-  readonly resumeTokenLifetimeMs: number;
-}
-
-interface TerminalResultRepository {
-  save(
-    input: {
-      readonly completedAt: Date;
-      readonly gameId: string;
-      readonly initialInitiative: PlayerId;
-      readonly participants: readonly [
-        {
-          readonly finalReserve: number;
-          readonly outcome: 'win' | 'loss';
-          readonly seat: PlayerId;
-          readonly userId: string;
-        },
-        {
-          readonly finalReserve: number;
-          readonly outcome: 'win' | 'loss';
-          readonly seat: PlayerId;
-          readonly userId: string;
-        },
-      ];
-      readonly protocolVersion: number;
-      readonly rounds: readonly {
-        readonly choices: Readonly<Record<PlayerId, number>>;
-        readonly initiative: PlayerId;
-        readonly predictions: Readonly<Record<PlayerId, number>>;
-        readonly reservesAfter: Readonly<Record<PlayerId, number>>;
-        readonly roundNumber: number;
-        readonly total: number;
-        readonly winner: PlayerId | null;
-      }[];
-      readonly rulesVersion: string;
-      readonly seed: number;
-      readonly terminalReason:
-        'reserve-empty' | 'hidden-choice-timeout' | 'prediction-timeout' | 'abandon' | 'disconnect';
-      readonly winner: PlayerId;
-    },
-    recordedAt: Date,
-  ): Promise<{ readonly kind: 'contradiction' } | { readonly kind: 'created' | 'existing' }>;
-}
-
-export interface MatchDependencies {
-  readonly clock: MatchClock;
-  readonly createResumeToken?: () => string;
-  readonly deadlines?: Partial<MatchDeadlines>;
-  readonly leaseHeartbeat?: {
-    readonly intervalMs: number;
-    check(roomId: string): Promise<'healthy' | 'lost' | 'unavailable'>;
-  };
-  readonly resultRepository: TerminalResultRepository;
-  readonly schedule?: (delayMs: number, task: () => void) => () => void;
-  readonly verifyAdmissionTicket: (
-    ticket: string,
-    expectedRoomId: string,
-  ) => Promise<AdmissionIdentity | null>;
-}
-
-export interface MatchOptions {
-  readonly gameId: string;
-  readonly roomId: string;
-  readonly seed: number;
-}
-
-export type MatchJoinResult =
-  | { readonly ok: true; readonly identity: AdmissionIdentity }
-  | { readonly ok: false; readonly code: 'ROOM_UNAVAILABLE' };
+export type {
+  AdmissionIdentity,
+  MatchConnection,
+  MatchDeadlines,
+  MatchDependencies,
+  MatchJoinResult,
+  MatchClock,
+  MatchOptions,
+} from './authoritative-match-types.js';
 
 interface SeatState {
   connection: MatchConnection | null;
@@ -169,6 +100,8 @@ export class AuthoritativeMatch {
   private readonly ready = new Map<PlayerId, boolean>();
   private gameplayStarted = false;
   private readonly processed = new Map<string, Map<string, ProcessedCommand>>();
+  private readonly roomSession: MultiplayerRoomSession;
+  private roomClosed = false;
   private terminalPersistence: Promise<void> | null = null;
 
   constructor(
@@ -180,9 +113,11 @@ export class AuthoritativeMatch {
       disconnectGraceMs: 60_000,
       hiddenChoiceMs: 30_000,
       predictionMs: 20_000,
+      rematchMs: 60_000,
       resumeTokenLifetimeMs: 6 * 60 * 60 * 1_000,
       ...dependencies.deadlines,
     };
+    this.roomSession = new MultiplayerRoomSession(options.roomId, this.deadlines.rematchMs);
     this.currentState = createGame({
       gameId: options.gameId,
       seed: options.seed,
@@ -227,7 +162,7 @@ export class AuthoritativeMatch {
   }
 
   canAdmit(identity: AdmissionIdentity): boolean {
-    if (identity.roomId !== this.options.roomId) {
+    if (this.roomClosed || identity.roomId !== this.options.roomId) {
       return false;
     }
     const occupied = this.seats.get(identity.playerId);
@@ -304,6 +239,9 @@ export class AuthoritativeMatch {
       return this.sendRejection(seat?.connection, commandId, 'ROOM_UNAVAILABLE', false);
     }
     await this.tick();
+    if (this.roomClosed) {
+      return this.sendRejection(seat.connection, commandId, 'ROOM_UNAVAILABLE', false);
+    }
 
     let command: ClientCommand;
     try {
@@ -345,17 +283,31 @@ export class AuthoritativeMatch {
     byUser.set(command.commandId, { fingerprint, response });
     this.processed.set(seat.identity.userId, byUser);
     seat.connection.send(response.type, response);
+    if (command.type === 'session.react') {
+      this.broadcastReaction(playerId, command.payload.reaction);
+    }
     this.syncActionDeadlines();
     this.broadcastState();
     return response;
   }
 
   async tick(): Promise<void> {
-    if (this.currentState.phase === 'finished' || this.currentState.phase === 'cancelled') {
+    if (this.roomClosed || this.currentState.phase === 'cancelled') {
       this.clearDeadlineTimer();
       return;
     }
     const now = this.dependencies.clock.now();
+    if (this.currentState.phase === 'finished') {
+      if (
+        this.roomSession.rematchExpired(now) ||
+        [...this.disconnected.values()].some((state) => state.deadline <= now)
+      ) {
+        this.closeSession();
+        return;
+      }
+      this.rescheduleDeadlineTimer();
+      return;
+    }
     const dueActionDeadline = minimum(this.actionDeadlines.values());
     if (dueActionDeadline !== null && dueActionDeadline <= now) {
       const transition =
@@ -389,11 +341,7 @@ export class AuthoritativeMatch {
 
   async checkLease(): Promise<void> {
     const heartbeat = this.dependencies.leaseHeartbeat;
-    if (
-      heartbeat === undefined ||
-      this.currentState.phase === 'finished' ||
-      this.currentState.phase === 'cancelled'
-    ) {
+    if (heartbeat === undefined || this.currentState.phase === 'cancelled' || this.roomClosed) {
       this.clearLeaseTimer();
       return;
     }
@@ -407,6 +355,7 @@ export class AuthoritativeMatch {
 
   async shutdown(operationalReason: string): Promise<void> {
     if (this.currentState.phase === 'finished' || this.currentState.phase === 'cancelled') {
+      this.closeSession();
       this.clearLeaseTimer();
       await this.terminalPersistence;
       return;
@@ -418,7 +367,9 @@ export class AuthoritativeMatch {
       this.actionDeadlines.clear();
       this.clearDeadlineTimer();
       this.clearLeaseTimer();
+      this.roomSession.recordTerminalGame(this.currentState, this.dependencies.clock.now());
       this.broadcastState();
+      this.closeSession();
     }
   }
 
@@ -426,6 +377,35 @@ export class AuthoritativeMatch {
     playerId: PlayerId,
     command: ClientCommand,
   ): Promise<CommandErrorCode | null> {
+    if (command.type === 'session.react') {
+      if (
+        this.roomClosed ||
+        this.currentState.phase === 'cancelled' ||
+        !this.roomSession.acceptReaction(playerId, this.dependencies.clock.now())
+      ) {
+        return this.roomClosed || this.currentState.phase === 'cancelled'
+          ? 'ROOM_UNAVAILABLE'
+          : 'RATE_LIMITED';
+      }
+      return null;
+    }
+    if (command.type === 'session.rematch') {
+      if (this.currentState.phase !== 'finished') {
+        return 'WRONG_PHASE';
+      }
+      const decision = this.roomSession.decideRematch(
+        playerId,
+        command.payload.accept,
+        this.dependencies.clock.now(),
+      );
+      if (decision === 'unavailable') {
+        return 'WRONG_PHASE';
+      }
+      if (decision === 'ready') {
+        this.startRematch();
+      }
+      return null;
+    }
     if (command.type === 'room.ready') {
       if (this.gameplayStarted) {
         return 'WRONG_PHASE';
@@ -433,9 +413,6 @@ export class AuthoritativeMatch {
       this.ready.set(playerId, command.payload.ready);
       this.gameplayStarted = this.bothPlayersReady();
       return null;
-    }
-    if (command.type === 'session.rematch' || command.type === 'session.react') {
-      return 'WRONG_PHASE';
     }
     if (!this.bothPlayersReady()) {
       return 'WRONG_PHASE';
@@ -460,9 +437,8 @@ export class AuthoritativeMatch {
     }
 
     this.currentState = transition.state;
-    if (this.currentState.phase === 'finished') {
-      this.terminalPersistence ??= this.persistTerminalResult();
-      await this.terminalPersistence;
+    if (this.currentState.phase === 'finished' || this.currentState.phase === 'cancelled') {
+      await this.recordTerminalState();
     }
     return null;
   }
@@ -498,6 +474,7 @@ export class AuthoritativeMatch {
     return createPublicSnapshot(this.currentState, {
       actionDeadline: minimum(this.actionDeadlines.values()),
       players,
+      rematch: this.roomSession.rematch,
       ready: {
         'player-one': this.ready.get('player-one') === true,
         'player-two': this.ready.get('player-two') === true,
@@ -505,7 +482,7 @@ export class AuthoritativeMatch {
       roomId: this.options.roomId,
       sequence: this.currentSequence,
       serverNow: this.dependencies.clock.now(),
-      sessionScore: { 'player-one': 0, 'player-two': 0 },
+      sessionScore: this.roomSession.score,
     });
   }
 
@@ -522,12 +499,11 @@ export class AuthoritativeMatch {
     this.currentState = state;
     this.currentSequence += 1;
     this.syncActionDeadlines();
-    if (state.phase === 'finished' || state.phase === 'cancelled') {
+    if (state.phase === 'cancelled') {
       this.clearLeaseTimer();
     }
-    if (state.phase === 'finished') {
-      this.terminalPersistence ??= this.persistTerminalResult();
-      await this.terminalPersistence;
+    if (state.phase === 'finished' || state.phase === 'cancelled') {
+      await this.recordTerminalState();
     }
     this.broadcastState();
   }
@@ -573,7 +549,7 @@ export class AuthoritativeMatch {
   }
 
   private startDisconnection(playerId: PlayerId): void {
-    if (this.currentState.phase === 'finished' || this.currentState.phase === 'cancelled') {
+    if (this.roomClosed || this.currentState.phase === 'cancelled') {
       return;
     }
     const used = this.disconnectUsedMs.get(playerId) ?? 0;
@@ -620,7 +596,7 @@ export class AuthoritativeMatch {
   }
 
   private resumeWindowIsOpen(playerId: PlayerId, now: number): boolean {
-    if (this.currentState.phase === 'finished' || this.currentState.phase === 'cancelled') {
+    if (this.roomClosed || this.currentState.phase === 'cancelled') {
       return false;
     }
     const seat = this.seats.get(playerId);
@@ -636,6 +612,7 @@ export class AuthoritativeMatch {
     const nextDeadline = minimum([
       ...this.actionDeadlines.values(),
       ...[...this.disconnected.values()].map((state) => state.deadline),
+      ...(this.roomSession.rematch.deadline === null ? [] : [this.roomSession.rematch.deadline]),
     ]);
     if (nextDeadline === null) {
       return;
@@ -696,6 +673,63 @@ export class AuthoritativeMatch {
     return response;
   }
 
+  private startRematch(): void {
+    this.currentState = createNextGame(this.currentState, {
+      gameId: this.dependencies.createGameId?.() ?? randomUUID(),
+      seed:
+        this.dependencies.createGameSeed?.() ??
+        (this.currentState.seed + this.currentState.sequenceNumber) % Number.MAX_SAFE_INTEGER,
+    }).state;
+    this.roomSession.beginRematch();
+    this.terminalPersistence = null;
+    this.actionDeadlineIdentity = null;
+    this.actionDeadlines.clear();
+    this.disconnectUsedMs.clear();
+    this.disconnected.clear();
+  }
+
+  private async recordTerminalState(): Promise<void> {
+    this.roomSession.recordTerminalGame(this.currentState, this.dependencies.clock.now());
+    this.rescheduleDeadlineTimer();
+    if (this.currentState.phase === 'finished') {
+      this.terminalPersistence ??= this.persistTerminalResult();
+      await this.terminalPersistence;
+    }
+  }
+
+  private broadcastReaction(playerId: PlayerId, reaction: Reaction): void {
+    const message = roomReactionSchema.parse({
+      expiresAt: this.dependencies.clock.now() + 3_000,
+      playerId,
+      protocolVersion: PROTOCOL_VERSION,
+      reaction,
+      sequence: this.currentSequence,
+      type: 'session.reaction',
+    });
+    for (const seat of this.seats.values()) {
+      seat.connection?.send(message.type, message);
+    }
+  }
+
+  private closeSession(): void {
+    if (this.roomClosed) {
+      return;
+    }
+    this.roomClosed = true;
+    this.roomSession.close();
+    this.actionDeadlines.clear();
+    this.disconnected.clear();
+    for (const seat of this.seats.values()) {
+      seat.resumeToken = null;
+      const connection = seat.connection;
+      seat.connection = null;
+      connection?.close?.();
+    }
+    this.connectionSeats.clear();
+    this.clearDeadlineTimer();
+    this.clearLeaseTimer();
+  }
+
   private async persistTerminalResult(): Promise<void> {
     const transcript = buildGameTranscript(this.currentState);
     if (transcript === null) {
@@ -736,30 +770,4 @@ export class AuthoritativeMatch {
       throw new Error('The terminal multiplayer result contradicts its persisted game id.');
     }
   }
-}
-
-function publicPlayer(seat: SeatState): PublicPlayer {
-  return {
-    avatarUrl: seat.identity.avatarUrl,
-    connected: seat.connection !== null,
-    username: seat.identity.username,
-  };
-}
-
-function participant(
-  seat: SeatState,
-  winner: PlayerId,
-  state: GameState,
-): {
-  readonly finalReserve: number;
-  readonly outcome: 'win' | 'loss';
-  readonly seat: PlayerId;
-  readonly userId: string;
-} {
-  return {
-    finalReserve: state.reserves[seat.identity.playerId],
-    outcome: seat.identity.playerId === winner ? 'win' : 'loss',
-    seat: seat.identity.playerId,
-    userId: seat.identity.userId,
-  };
 }

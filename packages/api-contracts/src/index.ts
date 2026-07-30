@@ -20,6 +20,18 @@ export {
   type JoinMultiplayerRoomResponse,
 } from './multiplayer.js';
 export {
+  multiplayerGameHistoryQuerySchema,
+  multiplayerGameHistorySchema,
+  multiplayerGameSummarySchema,
+  multiplayerHistoryParticipantSchema,
+  multiplayerRoundSummarySchema,
+  type MultiplayerGameHistory,
+  type MultiplayerGameHistoryQuery,
+  type MultiplayerGameSummary,
+  type MultiplayerHistoryParticipant,
+  type MultiplayerRoundSummary,
+} from './multiplayer-history.js';
+export {
   nicknameSchema,
   playerBioSchema,
   playerProfileSchema,

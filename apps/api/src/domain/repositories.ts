@@ -1,5 +1,7 @@
 import type {
   CreateSoloResultRequest,
+  MultiplayerGameHistory,
+  MultiplayerGameHistoryQuery,
   PlayerPreferences,
   PlayerProfile,
   SoloGameResult,
@@ -48,4 +50,8 @@ export interface SoloResultRepository {
   list(userId: string, query: SoloResultHistoryQuery): Promise<SoloResultHistory>;
   save(userId: string, input: CreateSoloResultRequest, now: Date): Promise<SaveSoloResultOutcome>;
   stats(userId: string): Promise<SoloStats>;
+}
+
+export interface MultiplayerHistoryRepository {
+  list(userId: string, query: MultiplayerGameHistoryQuery): Promise<MultiplayerGameHistory>;
 }

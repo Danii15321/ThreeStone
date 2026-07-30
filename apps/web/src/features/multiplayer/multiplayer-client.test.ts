@@ -69,6 +69,10 @@ function snapshot(sequence: number) {
     predictions: {},
     protocolVersion: 2,
     ready: { 'player-one': true, 'player-two': true },
+    rematch: {
+      accepted: { 'player-one': false, 'player-two': false },
+      deadline: null,
+    },
     reserves: { 'player-one': 3, 'player-two': 3 },
     revealedRounds: [],
     roomId: ADMISSION.roomId,
@@ -209,5 +213,41 @@ describe('MultiplayerClient', () => {
       type: 'sync',
       payload: { protocolVersion: 2 },
     });
+  });
+
+  it('exposes a validated reaction for three seconds without playing audio', async () => {
+    const room = new FakeRoom();
+    const scheduled: (() => void)[] = [];
+    const client = new MultiplayerClient(
+      ADMISSION,
+      { connect: vi.fn(async () => room) },
+      () => 'command-id-0001',
+      {
+        now: () => 1_775_000_000_000,
+        schedule(_delayMs, task) {
+          scheduled.push(task);
+          return () => undefined;
+        },
+      },
+    );
+    await client.connect();
+    room.emit('room.snapshot', snapshot(8));
+    room.emit('session.reaction', {
+      expiresAt: 1_775_000_003_000,
+      playerId: 'player-one',
+      protocolVersion: 2,
+      reaction: 'well-played',
+      sequence: 8,
+      type: 'session.reaction',
+    });
+
+    expect(client.getState().reaction).toMatchObject({
+      playerId: 'player-one',
+      reaction: 'well-played',
+    });
+    expect(client.getState()).not.toHaveProperty('audio');
+
+    scheduled.shift()?.();
+    expect(client.getState().reaction).toBeNull();
   });
 });

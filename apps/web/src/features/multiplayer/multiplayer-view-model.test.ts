@@ -19,6 +19,10 @@ const BASE_SNAPSHOT: RoomSnapshot = {
   predictions: {},
   protocolVersion: 2,
   ready: { 'player-one': true, 'player-two': true },
+  rematch: {
+    accepted: { 'player-one': false, 'player-two': false },
+    deadline: null,
+  },
   reserves: { 'player-one': 2, 'player-two': 3 },
   revealedRounds: [],
   roomId: '019b15db-9829-7b46-a6a5-6cfcb1ca84c5',

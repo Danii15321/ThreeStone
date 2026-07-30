@@ -35,6 +35,7 @@ export function fromRemotePreferences(preferences: PlayerPreferences): UserPrefe
           ? 'system'
           : 'full',
     muted: preferences.muted,
+    showReactions: true,
     soundVolume: preferences.soundVolume,
     tutorialCompleted: preferences.tutorialCompleted,
   };

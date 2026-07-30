@@ -51,6 +51,7 @@ describe('local preferences', () => {
       highContrast: true,
       motion: 'reduced' as const,
       muted: true,
+      showReactions: false,
       soundVolume: 0.35,
       tutorialCompleted: true,
     };

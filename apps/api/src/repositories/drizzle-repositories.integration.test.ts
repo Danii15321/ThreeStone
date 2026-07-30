@@ -1,4 +1,4 @@
-import { createDatabase, schema } from '@three-stone/database';
+import { createDatabase, DrizzleMultiplayerResultRepository, schema } from '@three-stone/database';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -6,6 +6,7 @@ import { AccountExportService } from '../application/account-export-service.js';
 import { ProfileService } from '../application/profile-service.js';
 import { SoloResultsService } from '../application/solo-results-service.js';
 import { DrizzlePlayerRepository } from './drizzle-player-repository.js';
+import { DrizzleMultiplayerHistoryRepository } from './drizzle-multiplayer-history-repository.js';
 import { DrizzleSoloResultRepository } from './drizzle-solo-result-repository.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
@@ -23,10 +24,14 @@ const RESULT = {
   rulesVersion: '1.0.0',
   winner: 'human' as const,
 };
+const MULTIPLAYER_GAME_ID = 'b8f16c4b-ed5c-43de-a679-ce0b4724a83c';
 
 integration('Drizzle repositories against PostgreSQL', () => {
   beforeEach(async () => {
     if (database === null) return;
+    await database.db
+      .delete(schema.multiplayerGame)
+      .where(eq(schema.multiplayerGame.gameId, MULTIPLAYER_GAME_ID));
     await database.db.delete(schema.user).where(eq(schema.user.id, 'user-a'));
     await database.db.delete(schema.user).where(eq(schema.user.id, 'user-b'));
     await database.db.insert(schema.user).values([
@@ -51,6 +56,9 @@ integration('Drizzle repositories against PostgreSQL', () => {
 
   afterAll(async () => {
     if (database === null) return;
+    await database.db
+      .delete(schema.multiplayerGame)
+      .where(eq(schema.multiplayerGame.gameId, MULTIPLAYER_GAME_ID));
     await database.db.delete(schema.user).where(eq(schema.user.id, 'user-a'));
     await database.db.delete(schema.user).where(eq(schema.user.id, 'user-b'));
     await database.close();
@@ -173,5 +181,67 @@ integration('Drizzle repositories against PostgreSQL', () => {
     expect(exported.results).toEqual([]);
     expect(exported.stats.gamesPlayed).toBe(0);
     expect(JSON.stringify(exported)).not.toContain('first@example.test');
+  });
+
+  it('returns the same transcript only to participants and anonymizes a deleted opponent', async () => {
+    if (database === null) return;
+    const results = new DrizzleMultiplayerResultRepository(database.db);
+    const history = new DrizzleMultiplayerHistoryRepository(database.db);
+    await results.save(
+      {
+        completedAt: NOW,
+        gameId: MULTIPLAYER_GAME_ID,
+        initialInitiative: 'player-one',
+        participants: [
+          {
+            finalReserve: 0,
+            outcome: 'win',
+            seat: 'player-one',
+            userId: 'user-a',
+          },
+          {
+            finalReserve: 2,
+            outcome: 'loss',
+            seat: 'player-two',
+            userId: 'user-b',
+          },
+        ],
+        protocolVersion: 2,
+        rounds: [
+          {
+            choices: { 'player-one': 1, 'player-two': 2 },
+            initiative: 'player-one',
+            predictions: { 'player-one': 3, 'player-two': 4 },
+            reservesAfter: { 'player-one': 0, 'player-two': 2 },
+            roundNumber: 1,
+            total: 3,
+            winner: 'player-one',
+          },
+        ],
+        rulesVersion: '1.0.0',
+        seed: 47,
+        terminalReason: 'reserve-empty',
+        winner: 'player-one',
+      },
+      NOW,
+    );
+
+    const first = await history.list('user-a', { limit: 10, offset: 0 });
+    const second = await history.list('user-b', { limit: 10, offset: 0 });
+    const outsider = await history.list('user-c', { limit: 10, offset: 0 });
+
+    expect(first.items[0]?.rounds).toEqual(second.items[0]?.rounds);
+    expect(first.items[0]?.localSeat).toBe('player-one');
+    expect(second.items[0]?.localSeat).toBe('player-two');
+    expect(outsider.total).toBe(0);
+
+    await database.db.delete(schema.user).where(eq(schema.user.id, 'user-a'));
+    const anonymized = await history.list('user-b', { limit: 10, offset: 0 });
+    expect(anonymized.items[0]?.participants['player-one']).toMatchObject({
+      deleted: true,
+      displayName: 'Joueur supprimé',
+    });
+    expect(JSON.stringify(anonymized)).not.toContain('First');
+    expect(JSON.stringify(anonymized)).not.toContain('user-a');
   });
 });

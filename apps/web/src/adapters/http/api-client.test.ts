@@ -273,4 +273,19 @@ describe('API client boundary', () => {
       }),
     );
   });
+
+  it('loads the authenticated multiplayer transcript history', async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ items: [], limit: 5, offset: 0, total: 0 })),
+      );
+    const client = new ApiClient('http://localhost:3001', fetcher);
+
+    await expect(client.getMultiplayerHistory(5)).resolves.toMatchObject({ total: 0 });
+    expect(fetcher).toHaveBeenCalledWith(
+      'http://localhost:3001/api/results/multiplayer?limit=5&offset=0',
+      expect.objectContaining({ credentials: 'include', method: 'GET' }),
+    );
+  });
 });

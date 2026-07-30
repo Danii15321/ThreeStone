@@ -5,6 +5,8 @@ import {
   createMultiplayerRoomResponseSchema,
   createSoloResultRequestSchema,
   joinMultiplayerRoomRequestSchema,
+  multiplayerGameHistorySchema,
+  multiplayerGameSummarySchema,
   updatePlayerPreferencesRequestSchema,
   updatePlayerProfileRequestSchema,
 } from './index.js';
@@ -127,5 +129,57 @@ describe('public API contracts', () => {
         ticketExpiresAt: '2026-07-30T15:00:45.000Z',
       }),
     ).not.toHaveProperty('ticketUrl');
+  });
+});
+
+describe('multiplayer history contracts', () => {
+  it('validates a participant-only transcript without retaining a deleted identity', () => {
+    const game = multiplayerGameSummarySchema.parse({
+      completedAt: '2026-07-30T18:00:00.000Z',
+      gameId: 'b8f16c4b-ed5c-43de-a679-ce0b4724a83c',
+      initialInitiative: 'player-one',
+      localSeat: 'player-two',
+      participants: {
+        'player-one': {
+          deleted: true,
+          displayName: 'Joueur supprimé',
+          finalReserve: 0,
+          outcome: 'win',
+        },
+        'player-two': {
+          deleted: false,
+          displayName: 'Bjorn',
+          finalReserve: 2,
+          outcome: 'loss',
+        },
+      },
+      protocolVersion: 2,
+      rounds: [
+        {
+          choices: { 'player-one': 1, 'player-two': 2 },
+          initiative: 'player-one',
+          predictions: { 'player-one': 3, 'player-two': 4 },
+          reservesAfter: { 'player-one': 0, 'player-two': 2 },
+          roundNumber: 1,
+          total: 3,
+          winner: 'player-one',
+        },
+      ],
+      rulesVersion: '1.0.0',
+      seed: 47,
+      terminalReason: 'reserve-empty',
+      winner: 'player-one',
+    });
+
+    expect(game.participants['player-one']).toEqual({
+      deleted: true,
+      displayName: 'Joueur supprimé',
+      finalReserve: 0,
+      outcome: 'win',
+    });
+    expect(JSON.stringify(game)).not.toContain('userId');
+    expect(
+      multiplayerGameHistorySchema.parse({ items: [game], limit: 20, offset: 0, total: 1 }),
+    ).toMatchObject({ total: 1 });
   });
 });

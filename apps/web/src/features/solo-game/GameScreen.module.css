@@ -457,6 +457,92 @@
   background: linear-gradient(180deg, #4b3329, #2d211c);
 }
 
+.sessionScore {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  width: min(100%, 34rem);
+  padding: 0.5rem 0.8rem;
+  margin: 0.5rem auto 0.8rem;
+  border: 1px solid rgb(214 175 118 / 35%);
+  border-radius: 999px;
+  color: #e8d7bf;
+  background: rgb(37 25 20 / 82%);
+  box-shadow: var(--shadow-inset);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.sessionScore strong {
+  padding: 0 1rem;
+  color: #f4d39a;
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+}
+
+.reactionBar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.45rem;
+  width: min(100%, 48rem);
+  margin: 0.75rem auto;
+}
+
+.reactionButton {
+  min-height: 2.35rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid rgb(214 175 118 / 42%);
+  border-radius: 999px;
+  color: #ead9bf;
+  background: linear-gradient(180deg, #473127, #2b201b);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.reactionButton:hover {
+  border-color: #efc276;
+  color: #fff4df;
+}
+
+.reactionToast {
+  position: fixed;
+  z-index: 20;
+  top: max(1rem, env(safe-area-inset-top));
+  left: 50%;
+  display: grid;
+  gap: 0.1rem;
+  min-width: min(18rem, calc(100vw - 2rem));
+  padding: 0.75rem 1rem;
+  border: 1px solid #efc276;
+  border-radius: 0.75rem;
+  color: #2d1b12;
+  background: linear-gradient(145deg, #f4e5ca, #d7b783);
+  box-shadow: 0 0.8rem 2rem rgb(16 10 8 / 45%);
+  text-align: center;
+  transform: translateX(-50%);
+  animation: bubble-in 180ms ease-out both;
+}
+
+.reactionToast strong {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.reactionToast span {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.primaryButton:disabled {
+  cursor: wait;
+  filter: grayscale(0.45);
+  opacity: 0.7;
+}
+
 .result {
   width: min(100%, 105dvh);
   padding: 1.5rem;

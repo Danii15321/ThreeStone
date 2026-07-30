@@ -688,15 +688,19 @@ commandes répétées sont idempotentes ou explicitement refusées.
 
 L'état actif reste en mémoire de la salle. PostgreSQL reçoit seulement :
 
-- métadonnées nécessaires à la création si le produit le requiert ;
-- résultat terminal ;
-- participants ;
-- motif terminal : victoire, abandon, délai ou annulation ;
-- éventuellement un journal filtré si un ADR le valide.
+- le résultat terminal validé ;
+- les deux participants et leurs sièges ;
+- le motif terminal : victoire, abandon, délai ou déconnexion ;
+- la version des règles et du protocole, la graine et l'initiative initiale ;
+- le transcript métier révélé, avec choix, pronostics, somme, gagnant et
+  réserves de chaque manche.
 
-Écrire chaque action en base sur le chemin critique n'est pas requis pour ce jeu
-et ne doit pas être introduit sans besoin de reprise après crash explicitement
-validé.
+Le transcript n'est pas un journal réseau : il ne contient ni commande refusée,
+ni ticket, ni jeton, ni temps de réflexion, ni choix avant sa révélation
+normale. La partie, les participants et les manches sont écrits dans une
+transaction idempotente. Seuls les deux participants peuvent lire ce
+récapitulatif. La suppression d'un compte conserve l'intégrité du résultat mais
+remplace son identité par « Joueur supprimé » pour l'autre participant.
 
 ## Sécurité
 

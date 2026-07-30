@@ -5,6 +5,7 @@ import { DrizzleMultiplayerLeaseRepository, createDatabase } from '@three-stone/
 import { HttpGameServerAdmissionGateway } from './adapters/http-game-server-admission-gateway.js';
 import { AccountExportService } from './application/account-export-service.js';
 import { MultiplayerAdmissionService } from './application/multiplayer-admission-service.js';
+import { MultiplayerHistoryService } from './application/multiplayer-history-service.js';
 import { ProfileService } from './application/profile-service.js';
 import { SoloResultsService } from './application/solo-results-service.js';
 import { createApp } from './app.js';
@@ -12,6 +13,7 @@ import { createBetterAuthGateway } from './auth/create-better-auth.js';
 import { readEnvironment } from './config/env.js';
 import { FixedWindowRateLimiter } from './http/rate-limiter.js';
 import { DrizzlePlayerRepository } from './repositories/drizzle-player-repository.js';
+import { DrizzleMultiplayerHistoryRepository } from './repositories/drizzle-multiplayer-history-repository.js';
 import { DrizzleSoloResultRepository } from './repositories/drizzle-solo-result-repository.js';
 
 export function createApiRuntime(source: NodeJS.ProcessEnv = process.env) {
@@ -44,6 +46,9 @@ export function createApiRuntime(source: NodeJS.ProcessEnv = process.env) {
     ),
     maxRequestBodyBytes: environment.MAX_REQUEST_BODY_BYTES,
     multiplayerAdmissionService,
+    multiplayerHistoryService: new MultiplayerHistoryService(
+      new DrizzleMultiplayerHistoryRepository(database.db),
+    ),
     multiplayerRateLimiter: new FixedWindowRateLimiter(
       environment.MULTIPLAYER_RATE_LIMIT_MAX,
       environment.MULTIPLAYER_RATE_LIMIT_WINDOW_SECONDS * 1_000,

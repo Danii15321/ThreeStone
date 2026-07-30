@@ -168,6 +168,9 @@ function createThreeStoneRoomClass(dependencies: MatchDependencies) {
 function clientConnection(client: Client): MatchConnection {
   return {
     connectionId: client.sessionId,
+    close() {
+      client.leave(4_000, 'Room closed.');
+    },
     send(type, payload) {
       client.send(type, payload);
     },

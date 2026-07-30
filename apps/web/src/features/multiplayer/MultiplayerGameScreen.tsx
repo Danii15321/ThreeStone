@@ -4,7 +4,7 @@ import type {
   CreateMultiplayerRoomResponse,
   JoinMultiplayerRoomResponse,
 } from '@three-stone/api-contracts';
-import type { RoomSnapshot } from '@three-stone/protocol';
+import type { Reaction, RoomSnapshot } from '@three-stone/protocol';
 
 import { createBoardModel } from '../../game/board-model.js';
 import { PhaserBoard } from '../../game/PhaserBoard.js';
@@ -20,6 +20,7 @@ import {
 } from './multiplayer-view-model.js';
 import {
   networkErrorMessage,
+  reactionLabel,
   shouldReduceMotion,
   statusMessage,
 } from './multiplayer-presentation.js';
@@ -45,6 +46,7 @@ export function MultiplayerGameScreen({
     null,
   );
   const shownRoundNumber = useRef(0);
+  const previousPhase = useRef<RoomSnapshot['phase'] | null>(null);
   const readySent = useRef(false);
   const reducedMotion = shouldReduceMotion(preferences);
   const snapshot = network.snapshot;
@@ -67,6 +69,19 @@ export function MultiplayerGameScreen({
       readySent.current = false;
     }
   }, [admission.playerId, client, snapshot]);
+
+  useEffect(() => {
+    if (
+      previousPhase.current === 'finished' &&
+      snapshot?.phase === 'hidden-choices' &&
+      snapshot.roundNumber === 1 &&
+      snapshot.revealedRounds.length === 0
+    ) {
+      shownRoundNumber.current = 0;
+      setRevealedRound(null);
+    }
+    previousPhase.current = snapshot?.phase ?? null;
+  }, [snapshot]);
 
   useEffect(() => {
     const latest = snapshot?.revealedRounds.at(-1);
@@ -165,6 +180,10 @@ export function MultiplayerGameScreen({
     window.setTimeout(onExit, reducedMotion ? 0 : 160);
   }
 
+  function react(reaction: Reaction): void {
+    client.send('session.react', { reaction });
+  }
+
   return (
     <main className={gameStyles.game} data-high-contrast={preferences.highContrast}>
       <header className={gameStyles.topbar}>
@@ -176,6 +195,14 @@ export function MultiplayerGameScreen({
           Quitter la partie
         </button>
       </header>
+
+      <section className={gameStyles.sessionScore} aria-label="Score de la série">
+        <span>{seats?.left.username ?? 'Adversaire'}</span>
+        <strong>
+          {snapshot.sessionScore[opponentPlayerId]} – {snapshot.sessionScore[localPlayerId]}
+        </strong>
+        <span>{seats?.right.username ?? 'Joueur'}</span>
+      </section>
 
       <section className={gameStyles.arena} aria-label="Table multijoueur">
         <PhaserBoard
@@ -237,6 +264,28 @@ export function MultiplayerGameScreen({
         </div>
       </section>
 
+      {preferences.showReactions && network.reaction ? (
+        <div className={gameStyles.reactionToast} role="status" aria-live="polite">
+          <strong>{snapshot.players[network.reaction.playerId].username}</strong>
+          <span>{reactionLabel(network.reaction.reaction)}</span>
+        </div>
+      ) : null}
+
+      {snapshot.phase !== 'cancelled' ? (
+        <section className={gameStyles.reactionBar} aria-label="Réactions">
+          {(['well-played', 'nice-bluff', 'oops', 'rematch'] as const).map((reaction) => (
+            <button
+              className={gameStyles.reactionButton}
+              key={reaction}
+              type="button"
+              onClick={() => react(reaction)}
+            >
+              {reactionLabel(reaction)}
+            </button>
+          ))}
+        </section>
+      ) : null}
+
       {controls.hiddenChoices.length > 0 ? (
         <StonePicker
           onConfirm={submitChoice}
@@ -271,6 +320,18 @@ export function MultiplayerGameScreen({
               : `Le duel s’est joué en ${snapshot.roundNumber} manches.`}
           </p>
           <div className={gameStyles.resultActions}>
+            {snapshot.phase === 'finished' ? (
+              <button
+                className={gameStyles.primaryButton}
+                disabled={snapshot.rematch.accepted[localPlayerId]}
+                type="button"
+                onClick={() => client.send('session.rematch', { accept: true })}
+              >
+                {snapshot.rematch.accepted[localPlayerId]
+                  ? 'Revanche demandée'
+                  : 'Demander une revanche'}
+              </button>
+            ) : null}
             <button className={gameStyles.secondaryButton} type="button" onClick={onExit}>
               Retour à l’accueil
             </button>

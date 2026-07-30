@@ -7,11 +7,13 @@ import {
   PROTOCOL_VERSION,
   commandAcceptedSchema,
   commandRejectedSchema,
+  roomReactionSchema,
   roomResumeTokenSchema,
   roomSnapshotSchema,
   seatObservationSchema,
   type ClientCommand,
   type RoomSnapshot,
+  type RoomReaction,
   type RoomResumeToken,
   type SeatObservation,
 } from '@three-stone/protocol';
@@ -19,7 +21,12 @@ import {
 type Admission = CreateMultiplayerRoomResponse | JoinMultiplayerRoomResponse;
 type CommandType = Extract<
   ClientCommand['type'],
-  'match.abandon' | 'room.ready' | 'round.choose' | 'round.predict'
+  | 'match.abandon'
+  | 'room.ready'
+  | 'round.choose'
+  | 'round.predict'
+  | 'session.react'
+  | 'session.rematch'
 >;
 type CommandPayload = Extract<ClientCommand, { type: CommandType }>['payload'];
 
@@ -48,6 +55,7 @@ export interface MultiplayerClientState {
   readonly error: string | null;
   readonly localPlayerId: Admission['playerId'];
   readonly observation: SeatObservation | null;
+  readonly reaction: RoomReaction | null;
   readonly snapshot: RoomSnapshot | null;
 }
 
@@ -62,6 +70,7 @@ export class MultiplayerClient {
   private readonly pendingCommands = new Map<string, PendingCommand>();
   private readonly unsubscribers: (() => void)[] = [];
   private cancelReconnect: (() => void) | null = null;
+  private cancelReaction: (() => void) | null = null;
   private closed = false;
   private reconnectAttempt = 0;
   private resumeToken: RoomResumeToken | null = null;
@@ -79,6 +88,7 @@ export class MultiplayerClient {
       error: null,
       localPlayerId: admission.playerId,
       observation: null,
+      reaction: null,
       snapshot: null,
     };
   }
@@ -124,6 +134,8 @@ export class MultiplayerClient {
     this.closed = true;
     this.cancelReconnect?.();
     this.cancelReconnect = null;
+    this.cancelReaction?.();
+    this.cancelReaction = null;
     const room = this.room;
     this.room = null;
     for (const unsubscribe of this.unsubscribers.splice(0)) {
@@ -135,6 +147,25 @@ export class MultiplayerClient {
       await room.leave();
     }
     this.update({ ...this.state, connection: 'closed' });
+  }
+
+  private receiveReaction(payload: unknown): void {
+    const parsed = roomReactionSchema.safeParse(payload);
+    if (!parsed.success) {
+      this.update({ ...this.state, error: 'MESSAGE_INVALID' });
+      return;
+    }
+    this.cancelReaction?.();
+    this.update({ ...this.state, error: null, reaction: parsed.data });
+    this.cancelReaction = this.reconnectRuntime.schedule(
+      Math.max(0, parsed.data.expiresAt - this.reconnectRuntime.now()),
+      () => {
+        this.cancelReaction = null;
+        if (this.state.reaction?.sequence === parsed.data.sequence) {
+          this.update({ ...this.state, reaction: null });
+        }
+      },
+    );
   }
 
   private receiveSnapshot(payload: unknown): void {
@@ -224,6 +255,7 @@ export class MultiplayerClient {
     this.unsubscribers.push(
       room.onMessage('room.resume-token', (payload) => this.receiveResumeToken(payload)),
       room.onMessage('room.snapshot', (payload) => this.receiveSnapshot(payload)),
+      room.onMessage('session.reaction', (payload) => this.receiveReaction(payload)),
       room.onMessage('seat.observation', (payload) => this.receiveObservation(payload)),
       room.onMessage('command.accepted', (payload) => this.receiveAccepted(payload)),
       room.onMessage('command.rejected', (payload) => this.receiveRejected(payload)),

@@ -1,7 +1,43 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 
 import type { GameState, PlayerId } from '@three-stone/game-core';
-import type { ClientCommand, CommandErrorCode } from '@three-stone/protocol';
+import type { ClientCommand, CommandErrorCode, PublicPlayer } from '@three-stone/protocol';
+
+interface SeatProjection {
+  readonly connection: unknown | null;
+  readonly identity: {
+    readonly avatarUrl: string | null;
+    readonly playerId: PlayerId;
+    readonly userId: string;
+    readonly username: string;
+  };
+}
+
+export function publicPlayer(seat: SeatProjection): PublicPlayer {
+  return {
+    avatarUrl: seat.identity.avatarUrl,
+    connected: seat.connection !== null,
+    username: seat.identity.username,
+  };
+}
+
+export function participant(
+  seat: SeatProjection,
+  winner: PlayerId,
+  state: GameState,
+): {
+  readonly finalReserve: number;
+  readonly outcome: 'win' | 'loss';
+  readonly seat: PlayerId;
+  readonly userId: string;
+} {
+  return {
+    finalReserve: state.reserves[seat.identity.playerId],
+    outcome: seat.identity.playerId === winner ? 'win' : 'loss',
+    seat: seat.identity.playerId,
+    userId: seat.identity.userId,
+  };
+}
 
 export function commandFingerprint(command: ClientCommand): string {
   return createHash('sha256').update(JSON.stringify(command)).digest('hex');

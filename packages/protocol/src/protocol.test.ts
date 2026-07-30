@@ -9,6 +9,7 @@ import {
   createCommandAccepted,
   createPublicSnapshot,
   createSeatObservation,
+  roomReactionSchema,
   roomResumeTokenSchema,
   roomSnapshotSchema,
   seatObservationSchema,
@@ -20,6 +21,10 @@ const context: SnapshotContext = {
   sequence: 4,
   serverNow: 1_000,
   actionDeadline: 31_000,
+  rematch: {
+    accepted: { 'player-one': false, 'player-two': false },
+    deadline: null,
+  },
   sessionScore: { 'player-one': 0, 'player-two': 0 },
   players: {
     'player-one': {
@@ -82,6 +87,21 @@ describe('client commands', () => {
     expect(roomResumeTokenSchema.parse(message)).toEqual(message);
     expect(() => roomResumeTokenSchema.parse({ ...message, playerId: 'player-one' })).toThrow();
   });
+
+  it('accepts only one of the four ephemeral server reactions', () => {
+    const reaction = {
+      expiresAt: 4_000,
+      playerId: 'player-one',
+      protocolVersion: 2,
+      reaction: 'nice-bluff',
+      sequence: 8,
+      type: 'session.reaction',
+    };
+
+    expect(roomReactionSchema.parse(reaction)).toEqual(reaction);
+    expect(() => roomReactionSchema.parse({ ...reaction, reaction: 'free text' })).toThrow();
+    expect(() => roomReactionSchema.parse({ ...reaction, sound: true })).toThrow();
+  });
 });
 
 describe('public and private projections', () => {
@@ -99,6 +119,24 @@ describe('public and private projections', () => {
     expect(serialized).not.toContain('hiddenChoice');
     expect(serialized).not.toContain('choicesReceived');
     expect(serialized).not.toContain('"count":3');
+  });
+
+  it('publishes the session score and explicit rematch agreement without hidden data', () => {
+    const state = createGame({ gameId: 'game-001', seed: 2, sequenceNumber: 1 }).state;
+    const snapshot = createPublicSnapshot(state, {
+      ...context,
+      rematch: {
+        accepted: { 'player-one': true, 'player-two': false },
+        deadline: 61_000,
+      },
+      sessionScore: { 'player-one': 2, 'player-two': 1 },
+    });
+
+    expect(snapshot.sessionScore).toEqual({ 'player-one': 2, 'player-two': 1 });
+    expect(snapshot.rematch).toEqual({
+      accepted: { 'player-one': true, 'player-two': false },
+      deadline: 61_000,
+    });
   });
 
   it('gives only the receiving seat its own accepted choice', () => {

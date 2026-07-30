@@ -1,4 +1,4 @@
-import type { RoomSnapshot } from '@three-stone/protocol';
+import type { Reaction, RoomSnapshot } from '@three-stone/protocol';
 
 import type { UserPreferences } from '../settings/preferences.js';
 
@@ -44,11 +44,22 @@ export function networkErrorMessage(error: string): string {
   const messages: Record<string, string> = {
     MESSAGE_INVALID: 'Une réponse réseau invalide a été écartée.',
     NOT_YOUR_TURN: 'Ce n’est pas encore votre tour.',
+    RATE_LIMITED: 'Laissez passer un instant avant une nouvelle réaction.',
     ROOM_UNAVAILABLE: 'Ce salon n’est plus disponible.',
     VALUE_INVALID: 'Ce choix n’est pas autorisé.',
     WRONG_PHASE: 'Cette action arrive trop tard pour cette phase.',
   };
   return messages[error] ?? 'La commande n’a pas pu être appliquée.';
+}
+
+export function reactionLabel(reaction: Reaction): string {
+  const labels: Record<Reaction, string> = {
+    'well-played': 'Bien joué !',
+    'nice-bluff': 'Joli bluff !',
+    oops: 'Oups !',
+    rematch: 'Revanche ?',
+  };
+  return labels[reaction];
 }
 
 export function playerInitial(name: string): string {

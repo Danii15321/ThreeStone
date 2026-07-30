@@ -1,5 +1,6 @@
 import type {
   CreateSoloResultRequest,
+  MultiplayerGameHistoryQuery,
   PlayerPreferences,
   PlayerProfile,
   SoloGameResult,
@@ -9,11 +10,13 @@ import type {
 
 import { AccountExportService } from '../application/account-export-service.js';
 import { ProfileService } from '../application/profile-service.js';
+import { MultiplayerHistoryService } from '../application/multiplayer-history-service.js';
 import { SoloResultsService } from '../application/solo-results-service.js';
 import type { ApiDependencies } from '../app.js';
 import type { AuthGateway } from '../auth/auth-gateway.js';
 import type {
   PlayerAvatar,
+  MultiplayerHistoryRepository,
   PlayerRepository,
   SaveSoloResultOutcome,
   SoloResultRepository,
@@ -116,6 +119,13 @@ class TestResultRepository implements SoloResultRepository {
   }
 }
 
+class TestMultiplayerHistoryRepository implements MultiplayerHistoryRepository {
+  async list(userId: string, query: MultiplayerGameHistoryQuery) {
+    void userId;
+    return { items: [], limit: query.limit, offset: query.offset, total: 0 };
+  }
+}
+
 export function createTestDependencies(
   options: {
     readonly authRateLimit?: number;
@@ -158,6 +168,9 @@ export function createTestDependencies(
         throw new Error('Unexpected multiplayer refresh call in this test.');
       },
     },
+    multiplayerHistoryService: new MultiplayerHistoryService(
+      new TestMultiplayerHistoryRepository(),
+    ),
     multiplayerRateLimiter: new FixedWindowRateLimiter(30, 60_000),
     profileService,
     readinessProbe: async () => true,

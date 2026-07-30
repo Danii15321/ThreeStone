@@ -3,6 +3,7 @@ import {
   apiErrorResponseSchema,
   createMultiplayerRoomResponseSchema,
   joinMultiplayerRoomResponseSchema,
+  multiplayerGameHistorySchema,
   playerPreferencesSchema,
   playerProfileSchema,
   soloGameResultSchema,
@@ -13,6 +14,7 @@ import {
   type CreateSoloResultRequest,
   type CreateMultiplayerRoomResponse,
   type JoinMultiplayerRoomResponse,
+  type MultiplayerGameHistory,
   type PlayerPreferences,
   type PlayerProfile,
   type SoloGameResult,
@@ -215,6 +217,13 @@ export class ApiClient {
 
   async getSoloStats(): Promise<SoloStats> {
     return this.validatedRequest('/api/stats/solo', soloStatsSchema);
+  }
+
+  async getMultiplayerHistory(limit = 10, offset = 0): Promise<MultiplayerGameHistory> {
+    return this.validatedRequest(
+      `/api/results/multiplayer?limit=${limit}&offset=${offset}`,
+      multiplayerGameHistorySchema,
+    );
   }
 
   async createMultiplayerRoom(): Promise<CreateMultiplayerRoomResponse> {

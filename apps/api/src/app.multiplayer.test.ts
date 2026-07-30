@@ -174,4 +174,20 @@ describe('multiplayer admission routes', () => {
 
     expect(rejected.status).toBe(429);
   });
+
+  it('exposes only the authenticated player multiplayer history', async () => {
+    const authenticated = createApp(multiplayerDependencies({ userId: 'participant' }));
+    const anonymous = createApp(multiplayerDependencies());
+
+    const history = await authenticated.request('/api/results/multiplayer?limit=10&offset=0');
+
+    expect(history.status).toBe(200);
+    await expect(history.json()).resolves.toEqual({
+      items: [],
+      limit: 10,
+      offset: 0,
+      total: 0,
+    });
+    expect((await anonymous.request('/api/results/multiplayer')).status).toBe(401);
+  });
 });

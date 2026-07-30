@@ -129,6 +129,20 @@ test('two isolated browser contexts finish the same authoritative match', async 
       'aria-label',
       new RegExp(`${creatorName} célèbre sa victoire avec un pouce levé`),
     );
+
+    await expect(creator.getByLabel('Score de la série')).toContainText('0 – 1');
+    await expect(guest.getByLabel('Score de la série')).toContainText('1 – 0');
+
+    await guest.getByRole('button', { name: 'Bien joué !' }).click();
+    await expect(creator.getByRole('status').filter({ hasText: 'Bien joué !' })).toBeVisible();
+
+    await creator.getByRole('button', { name: 'Demander une revanche' }).click();
+    await expect(creator.getByRole('button', { name: 'Revanche demandée' })).toBeDisabled();
+    await guest.getByRole('button', { name: 'Demander une revanche' }).click();
+
+    await expect(creator.getByRole('group', { name: 'Choisissez vos cailloux' })).toBeVisible();
+    await expect(guest.getByRole('group', { name: 'Choisissez vos cailloux' })).toBeVisible();
+    await expect(creator.getByLabel('Score de la série')).toContainText('0 – 1');
   } finally {
     await creatorContext.close();
     await guestContext.close();

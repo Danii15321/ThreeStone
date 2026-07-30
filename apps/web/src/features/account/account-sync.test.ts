@@ -14,6 +14,7 @@ describe('account synchronization mappings', () => {
         highContrast: true,
         motion: 'reduced',
         muted: true,
+        showReactions: false,
         soundVolume: 0.4,
         tutorialCompleted: true,
       }),
@@ -43,6 +44,7 @@ describe('account synchronization mappings', () => {
       highContrast: true,
       motion: 'system',
       muted: false,
+      showReactions: true,
       soundVolume: 0.4,
       tutorialCompleted: true,
     });

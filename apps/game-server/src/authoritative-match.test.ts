@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { CommandAccepted, RoomSnapshot, SeatObservation } from '@three-stone/protocol';
+import type {
+  CommandAccepted,
+  RoomReaction,
+  RoomSnapshot,
+  SeatObservation,
+} from '@three-stone/protocol';
 
 import {
   AuthoritativeMatch,
@@ -84,6 +89,7 @@ function setup(overrides: Partial<MatchDependencies> = {}) {
       disconnectGraceMs: 60_000,
       hiddenChoiceMs: 30_000,
       predictionMs: 20_000,
+      rematchMs: 60_000,
       resumeTokenLifetimeMs: 6 * 60 * 60 * 1_000,
     },
     resultRepository: {
@@ -155,6 +161,14 @@ async function accepted(
     | Readonly<{
         type: 'match.abandon';
         payload: Record<string, never>;
+      }>
+    | Readonly<{
+        type: 'session.rematch';
+        payload: { accept: boolean };
+      }>
+    | Readonly<{
+        type: 'session.react';
+        payload: { reaction: 'well-played' | 'nice-bluff' | 'oops' | 'rematch' };
       }>,
   commandId = `command-${String(match.sequence + 1).padStart(4, '0')}`,
 ): Promise<CommandAccepted> {
@@ -167,6 +181,35 @@ async function accepted(
   });
   expect(response.type).toBe('command.accepted');
   return response as CommandAccepted;
+}
+
+async function finishGame(
+  match: AuthoritativeMatch,
+  one: FakeConnection,
+  two: FakeConnection,
+  winner: 'player-one' | 'player-two' = 'player-one',
+): Promise<void> {
+  const gameNumber = match.state.sequenceNumber;
+  for (let round = 1; round <= 3; round += 1) {
+    await accepted(match, one, { type: 'round.choose', payload: { count: 1 } });
+    await accepted(match, two, { type: 'round.choose', payload: { count: 1 } });
+    const initiative = match.state.initiative;
+    const first = initiative === 'player-one' ? one : two;
+    const second = initiative === 'player-one' ? two : one;
+    await accepted(match, first, {
+      type: 'round.predict',
+      payload: { value: initiative === winner ? 2 : 0 },
+    });
+    await accepted(
+      match,
+      second,
+      {
+        type: 'round.predict',
+        payload: { value: initiative === winner ? 0 : 2 },
+      },
+      `game-${gameNumber}-round-${round}-last-prediction`,
+    );
+  }
 }
 
 describe('AuthoritativeMatch', () => {
@@ -473,26 +516,7 @@ describe('AuthoritativeMatch', () => {
     const { match, one, saved, two } = setup();
     await joinAndReady(match, one, two);
 
-    for (let round = 1; round <= 3; round += 1) {
-      await accepted(match, one, { type: 'round.choose', payload: { count: 1 } });
-      await accepted(match, two, { type: 'round.choose', payload: { count: 1 } });
-      const initiative = match.state.initiative;
-      const first = initiative === 'player-one' ? one : two;
-      const second = initiative === 'player-one' ? two : one;
-      await accepted(match, first, {
-        type: 'round.predict',
-        payload: { value: initiative === 'player-one' ? 2 : 0 },
-      });
-      await accepted(
-        match,
-        second,
-        {
-          type: 'round.predict',
-          payload: { value: initiative === 'player-one' ? 0 : 2 },
-        },
-        `round-${round}-last-prediction`,
-      );
-    }
+    await finishGame(match, one, two);
 
     expect(match.state).toMatchObject({
       phase: 'finished',
@@ -503,7 +527,7 @@ describe('AuthoritativeMatch', () => {
 
     const duplicate = await match.receive(two.connectionId, {
       protocolVersion: 2,
-      commandId: 'round-3-last-prediction',
+      commandId: 'game-1-round-3-last-prediction',
       roomId: ROOM_ID,
       knownSequence: match.sequence - 1,
       type: 'round.predict',
@@ -514,6 +538,142 @@ describe('AuthoritativeMatch', () => {
     expect(two.last<RoomSnapshot>('room.snapshot')).toMatchObject({
       winner: 'player-one',
       phase: 'finished',
+    });
+  });
+
+  it('keeps a session score and starts a rematch only after both players accept', async () => {
+    const { clock, match, one, two } = setup();
+    await joinAndReady(match, one, two);
+    const firstInitiative = match.state.initialInitiative;
+    await finishGame(match, one, two);
+
+    expect(one.last<RoomSnapshot>('room.snapshot')).toMatchObject({
+      rematch: {
+        accepted: { 'player-one': false, 'player-two': false },
+        deadline: clock.now() + 60_000,
+      },
+      sessionScore: { 'player-one': 1, 'player-two': 0 },
+    });
+
+    await accepted(match, one, {
+      type: 'session.rematch',
+      payload: { accept: true },
+    });
+    expect(match.state.phase).toBe('finished');
+
+    await accepted(match, two, {
+      type: 'session.rematch',
+      payload: { accept: true },
+    });
+    expect(match.state).toMatchObject({
+      phase: 'hidden-choices',
+      initialInitiative: firstInitiative === 'player-one' ? 'player-two' : 'player-one',
+    });
+    expect(one.last<RoomSnapshot>('room.snapshot').sessionScore).toEqual({
+      'player-one': 1,
+      'player-two': 0,
+    });
+  });
+
+  it('broadcasts only controlled reactions and enforces both rate limits', async () => {
+    const { clock, match, one, two } = setup();
+    await joinAndReady(match, one, two);
+
+    await accepted(match, one, {
+      type: 'session.react',
+      payload: { reaction: 'nice-bluff' },
+    });
+    expect(two.last<RoomReaction>('session.reaction')).toMatchObject({
+      expiresAt: clock.now() + 3_000,
+      playerId: 'player-one',
+      reaction: 'nice-bluff',
+    });
+
+    const tooFast = await match.receive(one.connectionId, {
+      commandId: 'reaction-too-fast',
+      knownSequence: match.sequence,
+      payload: { reaction: 'oops' },
+      protocolVersion: 2,
+      roomId: ROOM_ID,
+      type: 'session.react',
+    });
+    expect(tooFast).toMatchObject({
+      type: 'command.rejected',
+      error: { code: 'RATE_LIMITED' },
+    });
+
+    for (const [index, reaction] of (['oops', 'well-played'] as const).entries()) {
+      clock.nowMs += 2_000;
+      await accepted(
+        match,
+        one,
+        { type: 'session.react', payload: { reaction } },
+        `spaced-reaction-${index}`,
+      );
+    }
+    clock.nowMs += 2_000;
+    const fourthInWindow = await match.receive(one.connectionId, {
+      commandId: 'reaction-four-in-ten-seconds',
+      knownSequence: match.sequence,
+      payload: { reaction: 'rematch' },
+      protocolVersion: 2,
+      roomId: ROOM_ID,
+      type: 'session.react',
+    });
+    expect(fourthInWindow).toMatchObject({
+      type: 'command.rejected',
+      error: { code: 'RATE_LIMITED' },
+    });
+  });
+
+  it('keeps a complete two-to-one series in the same room', async () => {
+    const { match, one, two } = setup();
+    await joinAndReady(match, one, two);
+
+    for (const winner of ['player-one', 'player-two', 'player-one'] as const) {
+      await finishGame(match, one, two, winner);
+      if (match.state.sequenceNumber < 3) {
+        await accepted(match, one, {
+          type: 'session.rematch',
+          payload: { accept: true },
+        });
+        await accepted(match, two, {
+          type: 'session.rematch',
+          payload: { accept: true },
+        });
+      }
+    }
+
+    expect(one.last<RoomSnapshot>('room.snapshot')).toMatchObject({
+      phase: 'finished',
+      sessionScore: { 'player-one': 2, 'player-two': 1 },
+    });
+  });
+
+  it('closes the room and invalidates resume tokens when the rematch window expires', async () => {
+    const { clock, match, one, two } = setup();
+    await joinAndReady(match, one, two);
+    const token = one.last<{ token: string }>('room.resume-token').token;
+    await finishGame(match, one, two);
+
+    clock.nowMs += 60_000;
+    await match.tick();
+
+    expect(one.closed).toBe(true);
+    expect(two.closed).toBe(true);
+    expect(match.consumeResumeToken(token)).toBeNull();
+    await expect(
+      match.receive(one.connectionId, {
+        commandId: 'command-after-room-close',
+        knownSequence: match.sequence,
+        payload: { reaction: 'oops' },
+        protocolVersion: 2,
+        roomId: ROOM_ID,
+        type: 'session.react',
+      }),
+    ).resolves.toMatchObject({
+      type: 'command.rejected',
+      error: { code: 'ROOM_UNAVAILABLE' },
     });
   });
 

@@ -1,4 +1,5 @@
 import type {
+  MultiplayerGameHistory,
   PlayerProfile,
   SoloGameResult,
   SoloResultHistory,
@@ -13,6 +14,7 @@ import {
 } from '../../adapters/http/api-client.js';
 import type { UserPreferences } from '../settings/preferences.js';
 import { fromRemotePreferences } from './account-sync.js';
+import { MultiplayerHistory } from './MultiplayerHistory.js';
 import styles from './AccountPanel.module.css';
 
 interface AccountPanelProps {
@@ -127,12 +129,14 @@ function AuthenticatedAccount({
   onProfile,
   onPreferences,
   onSession,
+  preferences,
   session,
 }: AccountPanelProps & { readonly session: SessionSnapshot }) {
   const [view, setView] = useState<AccountView>('profile');
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [stats, setStats] = useState<SoloStats | null>(null);
   const [history, setHistory] = useState<SoloResultHistory | null>(null);
+  const [multiplayerHistory, setMultiplayerHistory] = useState<MultiplayerGameHistory | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -142,14 +146,19 @@ function AuthenticatedAccount({
       client.getPreferences(),
       client.getSoloStats(),
       client.getSoloHistory(5),
+      client.getMultiplayerHistory(5),
     ])
-      .then(([nextProfile, remotePreferences, nextStats, nextHistory]) => {
+      .then(([nextProfile, remotePreferences, nextStats, nextHistory, nextMultiplayerHistory]) => {
         if (cancelled) return;
         setProfile(nextProfile);
         onProfile(nextProfile);
-        onPreferences(fromRemotePreferences(remotePreferences));
+        onPreferences({
+          ...fromRemotePreferences(remotePreferences),
+          showReactions: preferences.showReactions,
+        });
         setStats(nextStats);
         setHistory(nextHistory);
+        setMultiplayerHistory(nextMultiplayerHistory);
       })
       .catch((error: unknown) => {
         if (!cancelled) setMessage(toFrenchError(error));
@@ -157,7 +166,7 @@ function AuthenticatedAccount({
     return () => {
       cancelled = true;
     };
-  }, [client, onPreferences, onProfile, session.user.id]);
+  }, [client, onPreferences, onProfile, preferences.showReactions, session.user.id]);
 
   function updateVisibleProfile(nextProfile: PlayerProfile): void {
     setProfile(nextProfile);
@@ -193,6 +202,7 @@ function AuthenticatedAccount({
         <ProfileView
           client={client}
           history={history}
+          multiplayerHistory={multiplayerHistory}
           onSignOut={() => void signOut()}
           profile={profile}
           session={session}
@@ -217,6 +227,7 @@ function AuthenticatedAccount({
 function ProfileView({
   client,
   history,
+  multiplayerHistory,
   onSignOut,
   profile,
   session,
@@ -224,6 +235,7 @@ function ProfileView({
 }: {
   readonly client: ApiClient;
   readonly history: SoloResultHistory | null;
+  readonly multiplayerHistory: MultiplayerGameHistory | null;
   readonly onSignOut: () => void;
   readonly profile: PlayerProfile | null;
   readonly session: SessionSnapshot;
@@ -281,6 +293,8 @@ function ProfileView({
           </div>
         )}
       </section>
+
+      <MultiplayerHistory history={multiplayerHistory} />
 
       <div className={styles.profileActions}>
         <button className={styles.logoutButton} type="button" onClick={onSignOut}>

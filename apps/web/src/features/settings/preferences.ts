@@ -6,6 +6,7 @@ export interface UserPreferences {
   readonly highContrast: boolean;
   readonly motion: MotionPreference;
   readonly muted: boolean;
+  readonly showReactions: boolean;
   readonly soundVolume: number;
   readonly tutorialCompleted: boolean;
 }
@@ -20,6 +21,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   highContrast: false,
   motion: 'system',
   muted: false,
+  showReactions: true,
   soundVolume: 0.8,
   tutorialCompleted: false,
 };
@@ -54,8 +56,13 @@ function parsePreferences(value: unknown): UserPreferences | null {
     candidate.tutorialCompleted === undefined
       ? DEFAULT_PREFERENCES.tutorialCompleted
       : candidate.tutorialCompleted;
+  const showReactions =
+    candidate.showReactions === undefined
+      ? DEFAULT_PREFERENCES.showReactions
+      : candidate.showReactions;
   if (
     typeof highContrast !== 'boolean' ||
+    typeof showReactions !== 'boolean' ||
     typeof tutorialCompleted !== 'boolean' ||
     typeof soundVolume !== 'number' ||
     !Number.isFinite(soundVolume) ||
@@ -70,6 +77,7 @@ function parsePreferences(value: unknown): UserPreferences | null {
     highContrast,
     motion: candidate.motion as MotionPreference,
     muted: candidate.muted,
+    showReactions,
     soundVolume,
     tutorialCompleted,
   };

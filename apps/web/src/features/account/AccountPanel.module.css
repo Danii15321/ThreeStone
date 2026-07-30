@@ -387,6 +387,71 @@
   display: block;
 }
 
+.transcriptList {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.transcriptCard {
+  overflow: hidden;
+  border: 1px solid rgb(190 145 87 / 32%);
+  border-radius: 0.75rem;
+  background: rgb(37 25 20 / 66%);
+}
+
+.transcriptCard summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.transcriptCard summary::-webkit-details-marker {
+  display: none;
+}
+
+.transcriptCard summary > span {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.transcriptCard summary > span:last-child {
+  color: var(--color-muted);
+  font-size: 0.78rem;
+}
+
+.transcriptCard ol {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0 1rem;
+  margin: 0;
+  list-style: none;
+}
+
+.transcriptCard li {
+  display: grid;
+  grid-template-columns: minmax(5rem, 1fr) auto minmax(7rem, 1fr);
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0;
+  border-top: 1px solid rgb(190 145 87 / 18%);
+}
+
+.transcriptCard li small {
+  color: var(--color-muted);
+  text-align: right;
+}
+
+.transcriptMeta {
+  padding: 0.7rem 1rem 0.9rem;
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.72rem;
+}
+
 .history li strong {
   color: #f0e5d3;
 }
