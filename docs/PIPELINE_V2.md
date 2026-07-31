@@ -386,6 +386,10 @@ Rendre la partie robuste aux pertes de réseau sans créer de stratégie de tric
 - un choix à l’échéance donnant une défaite ;
 - jeton de reprise à usage unique, haché et rotatif ;
 - reprise directe réussie lorsque l’API est indisponible ;
+- code de salon utilisable 15 minutes malgré la suspension du navigateur du créateur ;
+- grâce de reconnexion du créateur démarrant seulement à l’arrivée du second siège ;
+- seconde admission n’activant aucune manche tant que le créateur est absent ;
+- nouveau ticket API demandé si la connexion initiale échoue avant tout jeton de reprise ;
 - nouvelle connexion invalidant l’ancienne génération ;
 - snapshot après perte ou réordre de messages ;
 - perte définitive du bail annulant le salon.
@@ -396,6 +400,14 @@ Rendre la partie robuste aux pertes de réseau sans créer de stratégie de tric
 - évaluer atomiquement les choix reçus à l’échéance ;
 - émettre et renouveler le jeton de reprise depuis le game-server ;
 - implémenter le backoff client sans recharger la page ;
+- conserver le siège d’un créateur seul pendant la durée d’invitation puis
+  appliquer la grâce normale dès que l’adversaire rejoint ;
+- remettre `ready` à faux lors d’une déconnexion antérieure au démarrage et
+  afficher un salon à deux profils jusqu’au retour du joueur absent ;
+- faire de la synchronisation réseau authentifiée la source du statut `ready`,
+  sans dépendre d’un effet React exécuté en arrière-plan ;
+- renouveler le ticket court lorsque la première socket n’a pas pu obtenir de
+  jeton de reprise ;
 - renouveler les baux et annuler proprement en cas de perte ;
 - distinguer abandon explicite, délai, déconnexion et annulation technique.
 
@@ -403,6 +415,8 @@ Rendre la partie robuste aux pertes de réseau sans créer de stratégie de tric
 
 - couper le réseau avec trois secondes restantes ne donne que trois secondes ;
 - la reprise transitoire ne dépend pas de Hono ;
+- un code partagé reste joignable pendant 15 minutes et une socket mobile
+  suspendue ne crée pas de manche fantôme ;
 - aucun scénario de concurrence ne produit deux résultats ;
 - arrêt brutal, panne API et panne DB ont un résultat documenté et testé.
 

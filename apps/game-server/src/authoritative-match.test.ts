@@ -133,14 +133,6 @@ async function joinAndReady(
   await expect(match.join(two, 'ticket-two')).resolves.toMatchObject({ ok: true });
   expect(match.syncConnection(one.connectionId)).toBe(true);
   expect(match.syncConnection(two.connectionId)).toBe(true);
-  await accepted(match, one, {
-    type: 'room.ready',
-    payload: { ready: true },
-  });
-  await accepted(match, two, {
-    type: 'room.ready',
-    payload: { ready: true },
-  });
 }
 
 async function accepted(
@@ -246,6 +238,85 @@ describe('AuthoritativeMatch', () => {
       winner: 'player-one',
     });
     expect(saved).toHaveLength(1);
+  });
+
+  it('keeps a disconnected creator resumable while the room is still waiting', async () => {
+    const { clock, match, one, two } = setup();
+    await expect(match.join(one, 'ticket-one')).resolves.toMatchObject({ ok: true });
+    expect(match.syncConnection(one.connectionId)).toBe(true);
+    const token = one.last<{ token: string }>('room.resume-token').token;
+
+    match.leave(one.connectionId);
+    clock.nowMs += 60_001;
+    await match.tick();
+
+    expect(match.state).toMatchObject({ phase: 'hidden-choices', winner: null });
+    await expect(match.join(two, 'ticket-two')).resolves.toMatchObject({ ok: true });
+    clock.nowMs += 59_000;
+    await match.tick();
+    expect(match.consumeResumeToken(token)).toMatchObject({
+      connectionGeneration: 2,
+      playerId: 'player-one',
+      userId: 'user-one',
+    });
+  });
+
+  it('starts only after both admitted connections have synchronized', async () => {
+    const { match, one, two } = setup();
+    await expect(match.join(one, 'ticket-one')).resolves.toMatchObject({ ok: true });
+    await expect(match.join(two, 'ticket-two')).resolves.toMatchObject({ ok: true });
+
+    expect(match.syncConnection(one.connectionId)).toBe(true);
+    expect(one.last<RoomSnapshot>('room.snapshot')).toMatchObject({
+      actionDeadline: null,
+      ready: { 'player-one': true, 'player-two': false },
+    });
+
+    expect(match.syncConnection(two.connectionId)).toBe(true);
+    expect(one.last<RoomSnapshot>('room.snapshot')).toMatchObject({
+      ready: { 'player-one': true, 'player-two': true },
+    });
+    expect(one.last<RoomSnapshot>('room.snapshot').actionDeadline).not.toBeNull();
+  });
+
+  it('starts the normal reconnection grace only when an opponent joins the waiting creator', async () => {
+    const { clock, match, one, two } = setup();
+    await expect(match.join(one, 'ticket-one')).resolves.toMatchObject({ ok: true });
+    expect(match.syncConnection(one.connectionId)).toBe(true);
+
+    match.leave(one.connectionId);
+    clock.nowMs += 5 * 60_000;
+    await match.tick();
+    await expect(match.join(two, 'ticket-two')).resolves.toMatchObject({ ok: true });
+
+    clock.nowMs += 60_001;
+    await match.tick();
+
+    expect(match.state).toMatchObject({ phase: 'finished', winner: 'player-two' });
+  });
+
+  it('does not start gameplay while a ready creator is disconnected', async () => {
+    const { match, one, two } = setup();
+    await expect(match.join(one, 'ticket-one')).resolves.toMatchObject({ ok: true });
+    expect(match.syncConnection(one.connectionId)).toBe(true);
+    const token = one.last<{ token: string }>('room.resume-token').token;
+
+    match.leave(one.connectionId);
+    await expect(match.join(two, 'ticket-two')).resolves.toMatchObject({ ok: true });
+    expect(match.syncConnection(two.connectionId)).toBe(true);
+
+    expect(two.last<RoomSnapshot>('room.snapshot')).toMatchObject({
+      actionDeadline: null,
+      players: { 'player-one': { connected: false } },
+      ready: { 'player-one': false, 'player-two': true },
+    });
+
+    const resumedIdentity = match.consumeResumeToken(token);
+    const resumed = new FakeConnection('connection-one-resumed-before-start');
+    expect(match.joinIdentity(resumed, resumedIdentity!)).toMatchObject({ ok: true });
+    expect(match.syncConnection(resumed.connectionId)).toBe(true);
+
+    expect(two.last<RoomSnapshot>('room.snapshot').actionDeadline).not.toBeNull();
   });
 
   it('rejects a command received after its deadline even before the timer callback runs', async () => {
@@ -565,7 +636,7 @@ describe('AuthoritativeMatch', () => {
       winner: 'player-one',
     });
     expect(metrics.snapshot()).toMatchObject({
-      commandAcceptance: { count: 14 },
+      commandAcceptance: { count: 12 },
       persistenceErrors: 1,
       roomsFinished: 1,
     });

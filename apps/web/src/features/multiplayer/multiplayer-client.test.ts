@@ -223,6 +223,47 @@ describe('MultiplayerClient', () => {
     });
   });
 
+  it('requests a fresh admission ticket when the initial socket cannot stay connected', async () => {
+    const recoveredRoom = new FakeRoom();
+    const scheduled: (() => void)[] = [];
+    const refreshedAdmission = {
+      ...ADMISSION,
+      ticket: 'fresh-admission-ticket-that-is-long-enough-for-the-contract',
+    };
+    const connector: MultiplayerRoomConnector = {
+      connect: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('socket interrupted'))
+        .mockResolvedValueOnce(recoveredRoom),
+    };
+    const refreshAdmission = vi.fn(async () => refreshedAdmission);
+    const client = new MultiplayerClient(
+      ADMISSION,
+      connector,
+      () => 'command-id-0001',
+      {
+        now: () => 1_775_000_000_000,
+        schedule(_delayMs, task) {
+          scheduled.push(task);
+          return () => undefined;
+        },
+      },
+      refreshAdmission,
+    );
+
+    await expect(client.connect()).rejects.toThrow('ROOM_UNAVAILABLE');
+    expect(client.getState().connection).toBe('disconnected');
+    scheduled.shift()?.();
+
+    await vi.waitFor(() => expect(client.getState().connection).toBe('connected'));
+    expect(refreshAdmission).toHaveBeenCalledOnce();
+    expect(connector.connect).toHaveBeenLastCalledWith(
+      refreshedAdmission.gameServerUrl,
+      refreshedAdmission.roomId,
+      { ticket: refreshedAdmission.ticket },
+    );
+  });
+
   it('exposes a validated reaction for three seconds without playing audio', async () => {
     const room = new FakeRoom();
     const scheduled: (() => void)[] = [];

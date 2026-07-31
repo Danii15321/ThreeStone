@@ -6,13 +6,20 @@ import type {
 } from '@three-stone/api-contracts';
 import type { RoomSnapshot } from '@three-stone/protocol';
 
+import type { ApiClient } from '../../adapters/http/api-client.js';
 import { createBoardModel } from '../../game/board-model.js';
 import { PhaserBoard } from '../../game/PhaserBoard.js';
 import type { UserPreferences } from '../settings/preferences.js';
 import gameStyles from '../solo-game/GameScreen.module.css';
 import { normalizePredictionValue } from '../solo-game/game-controls.js';
 import { MultiplayerClient, projectBoardSeats } from './multiplayer-client.js';
-import { PlayerCard, PredictionSlider, StonePicker, WaitingRoom } from './MultiplayerGameParts.js';
+import {
+  PlayerCard,
+  PlayersWaitingRoom,
+  PredictionSlider,
+  StonePicker,
+  WaitingRoom,
+} from './MultiplayerGameParts.js';
 import {
   boardPoseForWinner,
   deriveMultiplayerControls,
@@ -32,16 +39,24 @@ type Admission = CreateMultiplayerRoomResponse | JoinMultiplayerRoomResponse;
 
 interface MultiplayerGameScreenProps {
   readonly admission: Admission;
+  readonly apiClient: Pick<ApiClient, 'refreshMultiplayerTicket'>;
   readonly onExit: () => void;
   readonly preferences: UserPreferences;
 }
 
 export function MultiplayerGameScreen({
   admission,
+  apiClient,
   onExit,
   preferences,
 }: MultiplayerGameScreenProps) {
-  const client = useMemo(() => new MultiplayerClient(admission), [admission]);
+  const client = useMemo(
+    () =>
+      new MultiplayerClient(admission, undefined, undefined, undefined, () =>
+        apiClient.refreshMultiplayerTicket(admission.roomId),
+      ),
+    [admission, apiClient],
+  );
   const network = useSyncExternalStore(client.subscribe, client.getState, client.getState);
   const [selectedStones, setSelectedStones] = useState<ReadonlySet<number>>(() => new Set());
   const [predictionValue, setPredictionValue] = useState(0);
@@ -50,7 +65,6 @@ export function MultiplayerGameScreen({
   );
   const shownRoundNumber = useRef(0);
   const previousPhase = useRef<RoomSnapshot['phase'] | null>(null);
-  const readySent = useRef(false);
   const reducedMotion = shouldReduceMotion(preferences);
   const snapshot = network.snapshot;
   const actionSeconds = useServerCountdown(
@@ -63,6 +77,7 @@ export function MultiplayerGameScreen({
     snapshot?.serverNow ?? 0,
     snapshot?.sequence ?? 0,
   );
+  const localPlayerId = admission.playerId;
 
   useEffect(() => {
     void client.connect().catch(() => undefined);
@@ -70,18 +85,6 @@ export function MultiplayerGameScreen({
       void client.close();
     };
   }, [client]);
-
-  useEffect(() => {
-    if (snapshot === null || snapshot.ready[admission.playerId] || readySent.current) {
-      return;
-    }
-    readySent.current = true;
-    try {
-      client.send('room.ready', { ready: true });
-    } catch {
-      readySent.current = false;
-    }
-  }, [admission.playerId, client, snapshot]);
 
   useEffect(() => {
     if (
@@ -118,7 +121,17 @@ export function MultiplayerGameScreen({
     );
   }
 
-  const localPlayerId = admission.playerId;
+  if (!snapshot.ready['player-one'] || !snapshot.ready['player-two']) {
+    return (
+      <PlayersWaitingRoom
+        error={network.error}
+        localPlayerId={localPlayerId}
+        onExit={onExit}
+        snapshot={snapshot}
+      />
+    );
+  }
+
   const opponentPlayerId = otherPlayer(localPlayerId);
   const seats = projectBoardSeats(network);
   const controls = deriveMultiplayerControls(snapshot, network.observation, localPlayerId);

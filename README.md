@@ -213,6 +213,8 @@ contraste sont regroupés dans « Paramètres du jeu ».
   décide de l'état officiel.
 - Protection stricte des choix cachés jusqu'à la révélation.
 - Reconnexion, abandon, délai de tour et gestion des déconnexions.
+- Salon d’invitation valable 15 minutes et démarrage seulement lorsque les deux
+  joueurs sont réellement connectés et prêts.
 - Synchronisation et transcript validé des manches d'une partie.
 - Enregistrement idempotent du résultat multijoueur dans le profil des deux
   participants.
@@ -456,10 +458,10 @@ La v1 sert le client Vite et l’API Hono depuis Vercel sous la même origine
 HTTPS. La v2 ajoute un Web Service Render long vivant pour Colyseus ; le
 game-server ne doit pas être exécuté dans une fonction Vercel.
 
-La candidate v2 est préparée mais n’est ni poussée ni déployée. Une validation
-explicite est nécessaire avant chaque action distante. La procédure complète,
-les variables, la migration, les smoke tests, le drainage de dix minutes et le
-retour arrière sont décrits dans
+Une validation explicite est nécessaire avant chaque action distante. L’état
+des déploiements doit être vérifié sur les plateformes concernées ; il n’est
+pas déduit du dépôt. La procédure complète, les variables, la migration, les
+smoke tests, le drainage de dix minutes et le retour arrière sont décrits dans
 [`docs/OPERATIONS_V2.md`](./docs/OPERATIONS_V2.md).
 
 Avant toute autorisation, `pnpm validate:v2` doit être vert avec PostgreSQL

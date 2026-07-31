@@ -2,12 +2,11 @@
 
 ## Statut
 
-Ce runbook prépare la livraison du multijoueur privé de ThreeStone. Il ne vaut
-pas autorisation de déploiement.
-
-La candidate est validée localement. Aucun push, service Render, environnement
-Vercel ou changement de base distante ne doit être effectué avant une
-validation explicite du propriétaire du projet.
+Ce runbook encadre la livraison du multijoueur privé de ThreeStone. Il ne vaut
+pas autorisation de déploiement : chaque push, changement Render ou Vercel et
+chaque migration distante nécessitent une validation explicite du propriétaire
+du projet. L’état courant des environnements doit être vérifié sur les
+plateformes au début de chaque livraison plutôt que déduit de ce document.
 
 ## Topologie retenue
 

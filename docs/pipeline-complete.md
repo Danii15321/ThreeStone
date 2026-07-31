@@ -1006,6 +1006,11 @@ La v2 n'est pas bloquée par ce lot facultatif.
 - remplacement contrôlé de connexion ;
 - reprise du siège ;
 - snapshot privé correct ;
+- invitation valide 15 minutes lorsque le créateur est seul, y compris après
+  suspension de sa connexion mobile ;
+- démarrage interdit tant que les deux joueurs ne sont pas connectés et prêts ;
+- renouvellement du ticket court si la connexion initiale échoue avant la
+  réception du jeton de reprise ;
 - expiration.
 
 ## O2-07 — Délais et abandon

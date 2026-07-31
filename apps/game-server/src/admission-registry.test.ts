@@ -84,6 +84,15 @@ describe('AdmissionRegistry', () => {
     ).toBeNull();
   });
 
+  it('removes expired waiting rooms from lease monitoring', () => {
+    const { expire, registry } = setup();
+
+    expect(registry.getLeaseCredentials(ROOM_ID)).toHaveLength(1);
+    expire();
+
+    expect(registry.getLeaseCredentials(ROOM_ID)).toEqual([]);
+  });
+
   it('increments the connection generation when the same account requests a new ticket', () => {
     const { created, registry } = setup();
 

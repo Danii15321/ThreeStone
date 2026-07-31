@@ -50,6 +50,8 @@ export interface MultiplayerReconnectRuntime {
   schedule(delayMs: number, task: () => void): () => void;
 }
 
+export type RefreshMultiplayerAdmission = () => Promise<JoinMultiplayerRoomResponse>;
+
 export interface MultiplayerClientState {
   readonly connection: 'closed' | 'connected' | 'connecting' | 'disconnected';
   readonly error: string | null;
@@ -82,6 +84,7 @@ export class MultiplayerClient {
     private readonly connector: MultiplayerRoomConnector = new ColyseusRoomConnector(),
     private readonly createCommandId: () => string = () => crypto.randomUUID(),
     private readonly reconnectRuntime: MultiplayerReconnectRuntime = browserReconnectRuntime,
+    private readonly refreshAdmission?: RefreshMultiplayerAdmission,
   ) {
     this.state = {
       connection: 'disconnected',
@@ -115,6 +118,7 @@ export class MultiplayerClient {
       this.attach(room);
     } catch {
       this.update({ ...this.state, connection: 'disconnected', error: 'ROOM_UNAVAILABLE' });
+      this.scheduleReconnect();
       throw new Error('ROOM_UNAVAILABLE');
     }
   }
@@ -279,7 +283,8 @@ export class MultiplayerClient {
 
   private scheduleReconnect(): void {
     const token = this.resumeToken;
-    if (this.closed || token === null || token.expiresAt <= this.reconnectRuntime.now()) {
+    const canResume = token !== null && token.expiresAt > this.reconnectRuntime.now();
+    if (this.closed || (!canResume && this.refreshAdmission === undefined)) {
       return;
     }
     const delayMs = Math.min(4_000, 250 * 2 ** this.reconnectAttempt);
@@ -293,22 +298,26 @@ export class MultiplayerClient {
 
   private async reconnect(): Promise<void> {
     const token = this.resumeToken;
-    if (
-      this.closed ||
-      this.room !== null ||
-      token === null ||
-      token.expiresAt <= this.reconnectRuntime.now()
-    ) {
+    if (this.closed || this.room !== null) {
       return;
     }
     this.update({ ...this.state, connection: 'connecting', error: null });
     try {
+      const canResume = token !== null && token.expiresAt > this.reconnectRuntime.now();
+      const refreshed = canResume ? null : await this.refreshAdmission?.();
+      if (
+        !canResume &&
+        (refreshed === null ||
+          refreshed === undefined ||
+          refreshed.roomId !== this.admission.roomId ||
+          refreshed.playerId !== this.admission.playerId)
+      ) {
+        throw new Error('ROOM_UNAVAILABLE');
+      }
       const room = await this.connector.connect(
-        this.admission.gameServerUrl,
+        refreshed?.gameServerUrl ?? this.admission.gameServerUrl,
         this.admission.roomId,
-        {
-          resumeToken: token.token,
-        },
+        canResume ? { resumeToken: token.token } : { ticket: refreshed!.ticket },
       );
       if (this.closed) {
         await room.leave();

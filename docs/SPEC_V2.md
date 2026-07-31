@@ -197,7 +197,7 @@ Valeurs initiales :
 
 | Situation | Délai |
 | --- | ---: |
-| Salon vide ou jamais prêt | 5 min |
+| Salon créé sans second joueur | 15 min |
 | Choix caché | 30 s par siège |
 | Pronostic | 20 s pour le siège actif |
 | Réponse à une demande « Rejouer » | 60 s après la demande |
@@ -248,9 +248,28 @@ Une coupure déclenche l’état public **Reconnexion…**. Le siège reste rés
 À la reprise, le serveur envoie un snapshot courant ; il ne rejoue pas une
 suite non fiable de messages manqués.
 
+Avant l’arrivée du second joueur, le code d’invitation et le siège du créateur
+restent valides pendant 15 minutes, même si le navigateur du créateur suspend
+sa connexion pendant le partage du code. Cette absence n’entame pas la grâce
+de gameplay. Dès que le second siège est réservé, un créateur encore absent
+dispose de la grâce normale de 60 secondes pour revenir.
+
+Une partie ne démarre que lorsque les deux sièges sont simultanément connectés
+et prêts. Une déconnexion avant le démarrage remet le siège concerné à
+`ready = false`. L’adversaire voit alors les deux profils dans le salon et un
+état de reconnexion ; il ne voit ni manche active ni délai de gameplay.
+La synchronisation authentifiée d’une connexion marque son siège comme prêt
+côté serveur : le démarrage ne dépend pas de l’exécution d’un effet d’interface
+dans un onglet mobile placé en arrière-plan.
+
 Une seule connexion peut contrôler un siège. Une nouvelle connexion valide
 remplace l’ancienne et incrémente une génération de connexion. Toute commande
 de l’ancienne génération est rejetée.
+
+Si la toute première connexion WebSocket échoue avant l’émission d’un jeton de
+reprise, le client demande un nouveau ticket court à l’API et retente la même
+salle. Après réception d’un jeton de reprise, les reconnexions transitoires
+restent directes vers le game-server.
 
 Le bouton **Quitter la partie** demande confirmation. Une confirmation pendant
 une partie active constitue un abandon et donne la victoire à l’adversaire.

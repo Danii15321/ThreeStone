@@ -692,6 +692,16 @@ commandes répétées sont idempotentes ou explicitement refusées.
 - Le serveur envoie un snapshot filtré, puis les événements plus récents si
   nécessaire.
 - Un ancien client ne peut pas reprendre un siège avec un ticket expiré.
+- Tant qu’aucun adversaire n’a rejoint, une suspension mobile du créateur ne
+  consomme pas la grâce de partie : son invitation reste valide 15 minutes.
+- À l’arrivée du second siège, la grâce de 60 secondes démarre pour tout
+  créateur encore absent ; la partie attend deux connexions et deux états
+  `ready` avant d’armer les délais de gameplay. Chaque synchronisation réseau
+  authentifiée positionne le siège correspondant à `ready`, indépendamment du
+  cycle de rendu de l’interface.
+- Si la connexion initiale échoue avant tout jeton de reprise, le client
+  renouvelle son ticket court via l’API ; les reprises suivantes utilisent le
+  jeton rotatif directement auprès du game-server.
 - À expiration du délai, une action de domaine décide abandon ou défaite selon
   la règle produit.
 - Le résultat d'une reconnexion ne dépend pas d'une animation locale.

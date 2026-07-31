@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest';
 import type { RoomSnapshot } from '@three-stone/protocol';
 
 import {
+  pregameWaitingMessage,
   reactionLabel,
   rematchPresentation,
   remainingSeconds,
   statusMessage,
+  waitingConnectionMessage,
 } from './multiplayer-presentation.js';
 
 const snapshot: RoomSnapshot = {
@@ -41,6 +43,41 @@ describe('multiplayer presentation', () => {
   it('announces an opponent reconnection without hiding the running phase deadline', () => {
     expect(statusMessage(snapshot, undefined, 'player-one')).toBe('Bjorn se reconnecte…');
     expect(snapshot.actionDeadline).toBe(1_775_000_020_000);
+  });
+
+  it('does not present a disconnected creator as normally waiting', () => {
+    expect(waitingConnectionMessage('connected')).toBe(
+      'Salon connecté. En attente de l’adversaire.',
+    );
+    expect(waitingConnectionMessage('disconnected')).toBe(
+      'Connexion interrompue. Tentative de reconnexion…',
+    );
+  });
+
+  it('keeps both players in the salon while the creator reconnects', () => {
+    const waitingForCreator: RoomSnapshot = {
+      ...snapshot,
+      players: {
+        'player-one': { ...snapshot.players['player-one'], connected: false },
+        'player-two': { ...snapshot.players['player-two'], connected: true },
+      },
+      ready: { 'player-one': false, 'player-two': true },
+    };
+    expect(pregameWaitingMessage(waitingForCreator, 'player-two')).toBe(
+      'Astrid se reconnecte… Le duel commencera à son retour.',
+    );
+    expect(
+      pregameWaitingMessage(
+        {
+          ...waitingForCreator,
+          players: {
+            ...waitingForCreator.players,
+            'player-one': { ...waitingForCreator.players['player-one'], connected: true },
+          },
+        },
+        'player-two',
+      ),
+    ).toBe('Les deux joueurs prennent place autour de la table…');
   });
 
   it('gives every controlled reaction a French text equivalent', () => {

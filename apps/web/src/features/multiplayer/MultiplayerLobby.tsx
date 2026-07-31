@@ -73,7 +73,12 @@ export function MultiplayerLobby({
 
   if (admission !== null && session !== null) {
     return (
-      <MultiplayerGameScreen admission={admission} onExit={onExit} preferences={preferences} />
+      <MultiplayerGameScreen
+        admission={admission}
+        apiClient={client}
+        onExit={onExit}
+        preferences={preferences}
+      />
     );
   }
 

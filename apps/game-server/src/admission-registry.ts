@@ -147,6 +147,7 @@ export class AdmissionRegistry {
     readonly leaseToken: string;
     readonly userId: string;
   }[] {
+    this.pruneExpiredWaitingRooms();
     const room = this.rooms.get(roomId);
     return room === undefined
       ? []

@@ -3,6 +3,7 @@ import type { Reaction, RoomSnapshot } from '@three-stone/protocol';
 import type { UserPreferences } from '../settings/preferences.js';
 
 type PlayerId = 'player-one' | 'player-two';
+type ConnectionState = 'closed' | 'connected' | 'connecting' | 'disconnected';
 
 export type RematchPresentation =
   | { readonly kind: 'declined'; readonly playerName: string }
@@ -44,6 +45,28 @@ export function statusMessage(
   return snapshot.winner === localPlayerId
     ? 'Vous avez remporté ce duel.'
     : `${opponentName} a remporté ce duel.`;
+}
+
+export function waitingConnectionMessage(connection: ConnectionState): string {
+  switch (connection) {
+    case 'connected':
+      return 'Salon connecté. En attente de l’adversaire.';
+    case 'connecting':
+      return 'Connexion au salon en cours…';
+    case 'disconnected':
+      return 'Connexion interrompue. Tentative de reconnexion…';
+    case 'closed':
+      return 'Le salon est fermé.';
+  }
+}
+
+export function pregameWaitingMessage(snapshot: RoomSnapshot, localPlayerId: PlayerId): string {
+  const opponentId = localPlayerId === 'player-one' ? 'player-two' : 'player-one';
+  const opponent = snapshot.players[opponentId];
+  if (!opponent.connected) {
+    return `${opponent.username} se reconnecte… Le duel commencera à son retour.`;
+  }
+  return 'Les deux joueurs prennent place autour de la table…';
 }
 
 export function networkErrorMessage(error: string): string {

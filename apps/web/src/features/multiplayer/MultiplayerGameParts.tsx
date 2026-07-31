@@ -1,7 +1,16 @@
+import type { RoomSnapshot } from '@three-stone/protocol';
+
 import gameStyles from '../solo-game/GameScreen.module.css';
 import { stoneReserveLabel } from './multiplayer-view-model.js';
-import { networkErrorMessage, playerInitial } from './multiplayer-presentation.js';
+import {
+  networkErrorMessage,
+  playerInitial,
+  pregameWaitingMessage,
+  waitingConnectionMessage,
+} from './multiplayer-presentation.js';
 import lobbyStyles from './MultiplayerLobby.module.css';
+
+type PlayerId = 'player-one' | 'player-two';
 
 export function WaitingRoom({
   connection,
@@ -9,11 +18,12 @@ export function WaitingRoom({
   inviteCode,
   onExit,
 }: {
-  readonly connection: string;
+  readonly connection: 'closed' | 'connected' | 'connecting' | 'disconnected';
   readonly error: string | null;
   readonly inviteCode: string | null;
   readonly onExit: () => void;
 }) {
+  const connected = connection === 'connected';
   return (
     <main className={lobbyStyles.shell}>
       <header className={lobbyStyles.topbar}>
@@ -27,9 +37,12 @@ export function WaitingRoom({
       </header>
       <section className={lobbyStyles.panel} aria-labelledby="waiting-title">
         <p className={lobbyStyles.eyebrow}>Votre table est prête</p>
-        <h2 id="waiting-title">En attente de l’adversaire</h2>
+        <h2 id="waiting-title">
+          {connected ? 'En attente de l’adversaire' : 'Reconnexion au salon'}
+        </h2>
         <div className={lobbyStyles.waiting} role="status" aria-live="polite">
           <span className={lobbyStyles.pulse} aria-hidden="true" />
+          <p className={lobbyStyles.panelText}>{waitingConnectionMessage(connection)}</p>
           {inviteCode ? (
             <>
               <p className={lobbyStyles.panelText}>
@@ -37,11 +50,66 @@ export function WaitingRoom({
               </p>
               <strong className={lobbyStyles.inviteCode}>{inviteCode}</strong>
             </>
-          ) : (
-            <p className={lobbyStyles.panelText}>
-              Connexion au salon {connection === 'connecting' ? 'en cours' : 'établie'}…
-            </p>
-          )}
+          ) : null}
+        </div>
+        {error ? <p className={lobbyStyles.error}>{networkErrorMessage(error)}</p> : null}
+      </section>
+    </main>
+  );
+}
+
+export function PlayersWaitingRoom({
+  error,
+  localPlayerId,
+  onExit,
+  snapshot,
+}: {
+  readonly error: string | null;
+  readonly localPlayerId: PlayerId;
+  readonly onExit: () => void;
+  readonly snapshot: RoomSnapshot;
+}) {
+  return (
+    <main className={lobbyStyles.shell}>
+      <header className={lobbyStyles.topbar}>
+        <div>
+          <p className={lobbyStyles.eyebrow}>Salon privé</p>
+          <h1>ThreeStone</h1>
+        </div>
+        <button className={lobbyStyles.secondaryButton} type="button" onClick={onExit}>
+          Quitter le salon
+        </button>
+      </header>
+      <section className={lobbyStyles.panel} aria-labelledby="players-waiting-title">
+        <p className={lobbyStyles.eyebrow}>Les deux sièges sont réservés</p>
+        <h2 id="players-waiting-title">Le duel va commencer</h2>
+        <div className={lobbyStyles.playerWaitingGrid}>
+          {(['player-one', 'player-two'] as const).map((playerId) => {
+            const player = snapshot.players[playerId];
+            return (
+              <article className={lobbyStyles.playerWaitingCard} key={playerId}>
+                <div className={lobbyStyles.waitingAvatar}>
+                  {player.avatarUrl ? (
+                    <img alt={`Avatar de ${player.username}`} src={player.avatarUrl} />
+                  ) : (
+                    <span aria-hidden="true">{playerInitial(player.username)}</span>
+                  )}
+                </div>
+                <strong>{player.username}</strong>
+                <span data-connected={player.connected}>
+                  {player.connected
+                    ? snapshot.ready[playerId]
+                      ? 'Prêt'
+                      : 'À la table'
+                    : 'Reconnexion…'}
+                </span>
+              </article>
+            );
+          })}
+        </div>
+        <div className={lobbyStyles.waiting} role="status" aria-live="polite">
+          <span className={lobbyStyles.pulse} aria-hidden="true" />
+          <p className={lobbyStyles.panelText}>{pregameWaitingMessage(snapshot, localPlayerId)}</p>
         </div>
         {error ? <p className={lobbyStyles.error}>{networkErrorMessage(error)}</p> : null}
       </section>

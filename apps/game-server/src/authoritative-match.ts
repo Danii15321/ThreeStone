@@ -95,6 +95,7 @@ export class AuthoritativeMatch {
   private readonly deadlines: MatchDeadlines;
   private readonly disconnected = new Map<PlayerId, DisconnectState>();
   private readonly disconnectUsedMs = new Map<PlayerId, number>();
+  private readonly waitingDisconnected = new Set<PlayerId>();
   private readonly seats = new Map<PlayerId, SeatState>();
   private readonly connectionSeats = new Map<string, PlayerId>();
   private readonly ready = new Map<PlayerId, boolean>();
@@ -156,6 +157,7 @@ export class AuthoritativeMatch {
     this.seats.set(identity.playerId, { connection, identity, resumeToken: null });
     this.connectionSeats.set(connection.connectionId, identity.playerId);
     this.ready.set(identity.playerId, this.ready.get(identity.playerId) ?? false);
+    this.activateWaitingDisconnectionsIfRoomFilled();
     this.currentSequence += 1;
     this.syncActionDeadlines();
     this.broadcastState();
@@ -207,6 +209,9 @@ export class AuthoritativeMatch {
     }
     this.connectionSeats.delete(connectionId);
     current.connection = null;
+    if (!this.gameplayStarted) {
+      this.ready.set(playerId, false);
+    }
     this.startDisconnection(playerId);
     this.currentSequence += 1;
     this.broadcastState();
@@ -220,6 +225,14 @@ export class AuthoritativeMatch {
       return false;
     }
     this.issueResumeToken(playerId);
+    if (!this.gameplayStarted && this.ready.get(playerId) !== true) {
+      this.ready.set(playerId, true);
+      this.gameplayStarted = this.bothPlayersReady() && this.bothPlayersConnected();
+      this.currentSequence += 1;
+      this.syncActionDeadlines();
+      this.broadcastState();
+      return true;
+    }
     if (this.seats.size === 2) {
       this.sendStateTo(playerId, seat);
     }
@@ -418,10 +431,10 @@ export class AuthoritativeMatch {
         return 'WRONG_PHASE';
       }
       this.ready.set(playerId, command.payload.ready);
-      this.gameplayStarted = this.bothPlayersReady();
+      this.gameplayStarted = this.bothPlayersReady() && this.bothPlayersConnected();
       return null;
     }
-    if (!this.bothPlayersReady()) {
+    if (!this.gameplayStarted) {
       return 'WRONG_PHASE';
     }
 
@@ -455,6 +468,15 @@ export class AuthoritativeMatch {
       this.seats.size === 2 &&
       this.ready.get('player-one') === true &&
       this.ready.get('player-two') === true
+    );
+  }
+
+  private bothPlayersConnected(): boolean {
+    return (
+      this.seats.get('player-one')?.connection !== null &&
+      this.seats.get('player-one')?.connection !== undefined &&
+      this.seats.get('player-two')?.connection !== null &&
+      this.seats.get('player-two')?.connection !== undefined
     );
   }
 
@@ -517,7 +539,7 @@ export class AuthoritativeMatch {
 
   private syncActionDeadlines(): void {
     if (
-      !this.bothPlayersReady() ||
+      !this.gameplayStarted ||
       this.currentState.phase === 'finished' ||
       this.currentState.phase === 'cancelled'
     ) {
@@ -559,6 +581,10 @@ export class AuthoritativeMatch {
     if (this.roomClosed || this.currentState.phase === 'cancelled') {
       return;
     }
+    if (!this.gameplayStarted && this.seats.size < 2) {
+      this.waitingDisconnected.add(playerId);
+      return;
+    }
     const used = this.disconnectUsedMs.get(playerId) ?? 0;
     const remainingBudget = Math.max(0, this.deadlines.disconnectBudgetMs - used);
     const startedAt = this.dependencies.clock.now();
@@ -568,7 +594,20 @@ export class AuthoritativeMatch {
     });
   }
 
+  private activateWaitingDisconnectionsIfRoomFilled(): void {
+    if (this.seats.size < 2) {
+      return;
+    }
+    for (const playerId of this.waitingDisconnected) {
+      this.waitingDisconnected.delete(playerId);
+      this.startDisconnection(playerId);
+    }
+  }
+
   private finishDisconnection(playerId: PlayerId): void {
+    if (this.waitingDisconnected.delete(playerId)) {
+      return;
+    }
     const state = this.disconnected.get(playerId);
     if (state === undefined) {
       return;
@@ -608,6 +647,9 @@ export class AuthoritativeMatch {
     }
     const seat = this.seats.get(playerId);
     if (seat?.connection !== null && seat?.connection !== undefined) {
+      return true;
+    }
+    if (this.waitingDisconnected.has(playerId)) {
       return true;
     }
     const disconnect = this.disconnected.get(playerId);
@@ -693,6 +735,7 @@ export class AuthoritativeMatch {
     this.actionDeadlines.clear();
     this.disconnectUsedMs.clear();
     this.disconnected.clear();
+    this.waitingDisconnected.clear();
   }
 
   private async recordTerminalState(): Promise<void> {
@@ -736,6 +779,7 @@ export class AuthoritativeMatch {
     this.roomSession.close();
     this.actionDeadlines.clear();
     this.disconnected.clear();
+    this.waitingDisconnected.clear();
     for (const seat of this.seats.values()) {
       seat.resumeToken = null;
       const connection = seat.connection;
