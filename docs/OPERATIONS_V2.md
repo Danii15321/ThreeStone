@@ -95,9 +95,14 @@ n’utilise pas HTTPS en production ou si une valeur est hors limites.
 
 ## Migration de la base
 
-La migration v2 est
-`packages/database/migrations/0004_strange_morgan_stark.sql`. Elle ajoute les
-baux et tables multijoueurs sans retirer les tables v1.
+Le schéma v2 est livré par trois migrations ordonnées :
+
+- `0004_strange_morgan_stark.sql` ajoute les baux et tables multijoueurs ;
+- `0005_daffy_stryfe.sql` ajoute la progression compétitive initiale ;
+- `0006_secret_diamondback.sql` la renomme en **Stones** et fixe son origine à
+  zéro.
+
+Elles conservent les tables et données v1.
 
 Procédure :
 
@@ -114,10 +119,11 @@ Vercel ou du game-server.
 
 ### Compatibilité de retour arrière
 
-La migration `0004` est additive. Une version v1 ignore ses tables, ce qui
-permet un retour au code précédent sans supprimer immédiatement les données
-v2. Une suppression de tables exige une opération ultérieure, sauvegardée et
-explicitement validée ; elle ne fait pas partie d’un rollback d’urgence.
+La migration `0004` est additive et une version v1 ignore ses tables. Les
+migrations `0005` et `0006` font évoluer uniquement le modèle v2 ; après leur
+application, le rollback doit donc cibler un commit qui connaît le champ
+`stones`, pas une révision intermédiaire qui attend encore `renown`. Aucune
+suppression de tables ne fait partie d’un rollback d’urgence.
 
 ## Séquence de livraison
 
@@ -130,7 +136,8 @@ explicitement validée ; elle ne fait pas partie d’un rollback d’urgence.
 5. déployer le web/API avec les URLs staging ;
 6. jouer avec deux comptes : partie normale, délai, abandon et reprise pendant
    une indisponibilité simulée de l’API ;
-7. vérifier revanche, score `2 – 1`, réactions, avatar et historique ;
+7. vérifier la demande **Rejouer** acceptée puis refusée, son compte à rebours,
+   le score `2 – 1`, l’avatar et l’historique ;
 8. exécuter la charge de 20 salons / 40 connexions ;
 9. tester une fois le drainage et le rollback ;
 10. consigner les preuves et obtenir la validation de production.
@@ -193,13 +200,14 @@ ni jeton de reprise, ni choix caché.
 ### Fonctionnel à deux comptes
 
 1. créer un salon et rejoindre avec le code ;
-2. confirmer que chaque navigateur projette son joueur à droite ;
+2. confirmer que les deux navigateurs placent chaque joueur, sa main et son
+   score du même côté ;
 3. soumettre deux choix cachés et vérifier l’absence de progression adverse ;
 4. terminer une manche et vérifier la même révélation des deux côtés ;
 5. couper le réseau du joueur qui doit agir et vérifier que son délai continue ;
 6. reprendre directement auprès du game-server ;
 7. terminer une partie et vérifier gagnant, transcript et historique ;
-8. accepter une revanche et vérifier l’alternance de l’initiative ;
+8. accepter une demande **Rejouer** et vérifier l’alternance de l’initiative ;
 9. abandonner une autre partie et vérifier le score de session ;
 10. contrôler clavier, mobile et mouvement réduit.
 
@@ -245,7 +253,8 @@ peut être plus courte que dix minutes.
 
 1. fermer les admissions de la version fautive ;
 2. attendre ou annuler les salles selon la procédure de drainage ;
-3. conserver la migration additive `0004` ;
+3. conserver les migrations `0004` à `0006` et choisir un commit compatible
+   avec le champ `stones` ;
 4. redéployer le dernier commit compatible avec le protocole `2.0` ;
 5. rétablir ensemble les URLs publiques et internes ;
 6. exécuter les quatre contrôles de santé ;

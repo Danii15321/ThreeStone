@@ -1,5 +1,6 @@
 import type {
   MultiplayerGameHistory,
+  MultiplayerStats,
   PlayerProfile,
   SoloGameResult,
   SoloResultHistory,
@@ -12,9 +13,11 @@ import {
   type ApiClient,
   type SessionSnapshot,
 } from '../../adapters/http/api-client.js';
+import stonesEmblem from '../../assets/stones-emblem.webp';
 import type { UserPreferences } from '../settings/preferences.js';
 import { fromRemotePreferences } from './account-sync.js';
-import { MultiplayerHistory } from './MultiplayerHistory.js';
+import { MultiplayerHistoryCard } from './MultiplayerHistory.js';
+import { mergeGameJournal } from './game-journal.js';
 import styles from './AccountPanel.module.css';
 
 interface AccountPanelProps {
@@ -137,6 +140,7 @@ function AuthenticatedAccount({
   const [stats, setStats] = useState<SoloStats | null>(null);
   const [history, setHistory] = useState<SoloResultHistory | null>(null);
   const [multiplayerHistory, setMultiplayerHistory] = useState<MultiplayerGameHistory | null>(null);
+  const [multiplayerStats, setMultiplayerStats] = useState<MultiplayerStats | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -147,19 +151,30 @@ function AuthenticatedAccount({
       client.getSoloStats(),
       client.getSoloHistory(5),
       client.getMultiplayerHistory(5),
+      client.getMultiplayerStats(),
     ])
-      .then(([nextProfile, remotePreferences, nextStats, nextHistory, nextMultiplayerHistory]) => {
-        if (cancelled) return;
-        setProfile(nextProfile);
-        onProfile(nextProfile);
-        onPreferences({
-          ...fromRemotePreferences(remotePreferences),
-          showReactions: preferences.showReactions,
-        });
-        setStats(nextStats);
-        setHistory(nextHistory);
-        setMultiplayerHistory(nextMultiplayerHistory);
-      })
+      .then(
+        ([
+          nextProfile,
+          remotePreferences,
+          nextStats,
+          nextHistory,
+          nextMultiplayerHistory,
+          nextMultiplayerStats,
+        ]) => {
+          if (cancelled) return;
+          setProfile(nextProfile);
+          onProfile(nextProfile);
+          onPreferences({
+            ...fromRemotePreferences(remotePreferences),
+            showReactions: preferences.showReactions,
+          });
+          setStats(nextStats);
+          setHistory(nextHistory);
+          setMultiplayerHistory(nextMultiplayerHistory);
+          setMultiplayerStats(nextMultiplayerStats);
+        },
+      )
       .catch((error: unknown) => {
         if (!cancelled) setMessage(toFrenchError(error));
       });
@@ -203,6 +218,7 @@ function AuthenticatedAccount({
           client={client}
           history={history}
           multiplayerHistory={multiplayerHistory}
+          multiplayerStats={multiplayerStats}
           onSignOut={() => void signOut()}
           profile={profile}
           session={session}
@@ -228,6 +244,7 @@ function ProfileView({
   client,
   history,
   multiplayerHistory,
+  multiplayerStats,
   onSignOut,
   profile,
   session,
@@ -236,11 +253,18 @@ function ProfileView({
   readonly client: ApiClient;
   readonly history: SoloResultHistory | null;
   readonly multiplayerHistory: MultiplayerGameHistory | null;
+  readonly multiplayerStats: MultiplayerStats | null;
   readonly onSignOut: () => void;
   readonly profile: PlayerProfile | null;
   readonly session: SessionSnapshot;
   readonly stats: SoloStats | null;
 }) {
+  const journal = mergeGameJournal(history?.items ?? [], multiplayerHistory?.items ?? [], 5);
+  const gamesPlayed =
+    stats === null || multiplayerStats === null
+      ? undefined
+      : stats.gamesPlayed + multiplayerStats.gamesPlayed;
+
   return (
     <div className={styles.profileView}>
       <section className={styles.playerCard} aria-labelledby="account-title">
@@ -264,12 +288,8 @@ function ProfileView({
       </section>
 
       <dl className={styles.stats}>
-        <StatCard label="Parties jouées" value={stats?.gamesPlayed} />
-        <StatCard label="Victoires" value={stats?.wins} />
-        <StatCard
-          label="Taux de victoire"
-          value={stats ? `${Math.round(stats.winRate * 100)} %` : undefined}
-        />
+        <StatCard label="Parties jouées" value={gamesPlayed} />
+        <StonesCard value={multiplayerStats?.stones} />
       </dl>
 
       <section className={styles.history} aria-labelledby="history-title">
@@ -278,14 +298,21 @@ function ProfileView({
             <p className={styles.eyebrow}>Journal de jeu</p>
             <h2 id="history-title">Dernières parties</h2>
           </div>
-          <span>{history?.total ?? 0} au total</span>
+          <span>{(history?.total ?? 0) + (multiplayerHistory?.total ?? 0)} au total</span>
         </div>
-        {history && history.items.length > 0 ? (
-          <ul>
-            {history.items.map((result) => (
-              <HistoryCard key={result.gameId} result={result} />
-            ))}
-          </ul>
+        {journal.length > 0 ? (
+          <div className={styles.journalList}>
+            {journal.map((entry) =>
+              entry.mode === 'solo' ? (
+                <HistoryCard key={`solo:${entry.game.gameId}`} result={entry.game} />
+              ) : (
+                <MultiplayerHistoryCard
+                  game={entry.game}
+                  key={`multiplayer:${entry.game.gameId}`}
+                />
+              ),
+            )}
+          </div>
         ) : (
           <div className={styles.emptyHistory}>
             <span aria-hidden="true">◇</span>
@@ -293,8 +320,6 @@ function ProfileView({
           </div>
         )}
       </section>
-
-      <MultiplayerHistory history={multiplayerHistory} />
 
       <div className={styles.profileActions}>
         <button className={styles.logoutButton} type="button" onClick={onSignOut}>
@@ -643,7 +668,17 @@ function StatCard({
     <div>
       <dt>{label}</dt>
       <dd>{value ?? '—'}</dd>
-      <span aria-hidden="true" />
+    </div>
+  );
+}
+
+function StonesCard({ value }: { readonly value: number | undefined }) {
+  return (
+    <div className={styles.stonesStat}>
+      <img src={stonesEmblem} alt="" aria-hidden="true" />
+      <dt>Stones</dt>
+      <dd>{value ?? '—'}</dd>
+      <small>Votre valeur officielle en duel</small>
     </div>
   );
 }
@@ -651,7 +686,7 @@ function StatCard({
 function HistoryCard({ result }: { readonly result: SoloGameResult }) {
   const victory = result.winner === 'human';
   return (
-    <li>
+    <article className={styles.soloJournalCard}>
       <span className={victory ? styles.victoryMark : styles.defeatMark} aria-hidden="true">
         {victory ? 'V' : 'D'}
       </span>
@@ -663,7 +698,7 @@ function HistoryCard({ result }: { readonly result: SoloGameResult }) {
         <strong>{result.roundsPlayed} manches</strong>
         <small>{formatGameDate(result.completedAt)}</small>
       </span>
-    </li>
+    </article>
   );
 }
 

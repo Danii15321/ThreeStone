@@ -38,7 +38,7 @@ distinguent la preuve produit de la mise en production réelle :
 | Interface U1 | `VERIFIED` | React accessible, tutoriel, Phaser Canvas sans audio, contraste, mouvement réduit et responsive |
 | Solo/résultats S1 | `VERIFIED` | partie complète, résultat idempotent, historique/statistiques et parcours E2E multi-navigateurs |
 | Livraison R1 | `READY_FOR_RELEASE` local uniquement | build et smoke tests locaux passants ; staging, restauration répétée, audit de sécurité de release et production restent à exécuter sur l'infrastructure cible |
-| v2 multijoueur | `READY_FOR_VALIDATION` | serveur autoritaire, admission, reprise, délais, revanche, historique, audit complet, accessibilité et charge 20 salons / 40 connexions |
+| v2 multijoueur | `READY_FOR_VALIDATION` | serveur autoritaire, admission, reprise, délais, demande pour rejouer, historique, audit complet, accessibilité et charge 20 salons / 40 connexions |
 | Livraison v2 | `AWAITING_APPROVAL` | runbook et rollback documentés ; aucun push, staging ou déploiement exécuté |
 
 La CI démarre PostgreSQL, applique les migrations, exécute les suites
@@ -748,7 +748,7 @@ reproductibles.**
 - pronostics selon initiative ;
 - révélation ;
 - manches successives ;
-- victoire et revanche.
+- victoire et bouton « Rejouer ».
 
 ## S1-02 — Enregistrement idempotent
 
@@ -763,8 +763,8 @@ reproductibles.**
 ## S1-03 — Historique et statistiques
 
 - liste paginée ;
-- séparation solo/en ligne ;
-- résultats et taux de victoire ;
+- Journal de jeu fusionné par date entre solo et multijoueur ;
+- nombre total de parties et Stones multijoueur ;
 - état vide ;
 - cohérence avec la source `game_record` ;
 - aucune ambition compétitive.

@@ -572,7 +572,7 @@ describe('AuthoritativeMatch', () => {
   });
 
   it('keeps a session score and starts a rematch only after both players accept', async () => {
-    const { clock, match, one, two } = setup();
+    const { match, one, two } = setup();
     await joinAndReady(match, one, two);
     const firstInitiative = match.state.initialInitiative;
     await finishGame(match, one, two);
@@ -580,7 +580,8 @@ describe('AuthoritativeMatch', () => {
     expect(one.last<RoomSnapshot>('room.snapshot')).toMatchObject({
       rematch: {
         accepted: { 'player-one': false, 'player-two': false },
-        deadline: clock.now() + 60_000,
+        deadline: null,
+        declinedBy: null,
       },
       sessionScore: { 'player-one': 1, 'player-two': 0 },
     });

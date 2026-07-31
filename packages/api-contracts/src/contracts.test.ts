@@ -145,12 +145,18 @@ describe('multiplayer history contracts', () => {
           displayName: 'Joueur supprimé',
           finalReserve: 0,
           outcome: 'win',
+          stonesAfter: 24,
+          stonesBefore: 0,
+          stonesDelta: 24,
         },
         'player-two': {
           deleted: false,
           displayName: 'Bjorn',
           finalReserve: 2,
           outcome: 'loss',
+          stonesAfter: -24,
+          stonesBefore: 0,
+          stonesDelta: -24,
         },
       },
       protocolVersion: 2,
@@ -176,6 +182,9 @@ describe('multiplayer history contracts', () => {
       displayName: 'Joueur supprimé',
       finalReserve: 0,
       outcome: 'win',
+      stonesAfter: 24,
+      stonesBefore: 0,
+      stonesDelta: 24,
     });
     expect(JSON.stringify(game)).not.toContain('userId');
     expect(

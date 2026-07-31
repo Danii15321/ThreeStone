@@ -6,8 +6,8 @@ cailloux en devinant la somme cachée dans les deux mains.
 
 La **candidate v2 est jouable et vérifiée localement** : elle conserve la
 boucle solo et ajoute des salons privés à deux joueurs, un serveur Colyseus
-autoritaire, la reprise de connexion, les délais, la revanche, le score de
-session, les réactions contrôlées et l’historique partagé. Le client React/Vite
+autoritaire, la reprise de connexion, les délais visibles, la demande de
+rejouer avec acceptation explicite, le score de session et l’historique partagé. Le client React/Vite
 utilise Phaser en Canvas ; l’API Hono et le serveur de jeu s’appuient sur Better
 Auth, PostgreSQL, Drizzle et des contrats Zod stricts.
 
@@ -215,7 +215,7 @@ contraste sont regroupés dans « Paramètres du jeu ».
 - Synchronisation et transcript validé des manches d'une partie.
 - Enregistrement idempotent du résultat multijoueur dans le profil des deux
   participants.
-- Score de session, revanche et réactions prédéfinies sans chat libre.
+- Score de session et demande de rejouer acceptée ou refusée explicitement.
 
 Le matchmaking public, le classement compétitif, les amis et les achats ne font
 pas partie du premier incrément multijoueur. Ils nécessiteront une décision

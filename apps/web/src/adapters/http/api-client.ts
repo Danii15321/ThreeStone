@@ -4,6 +4,7 @@ import {
   createMultiplayerRoomResponseSchema,
   joinMultiplayerRoomResponseSchema,
   multiplayerGameHistorySchema,
+  multiplayerStatsSchema,
   playerPreferencesSchema,
   playerProfileSchema,
   soloGameResultSchema,
@@ -15,6 +16,7 @@ import {
   type CreateMultiplayerRoomResponse,
   type JoinMultiplayerRoomResponse,
   type MultiplayerGameHistory,
+  type MultiplayerStats,
   type PlayerPreferences,
   type PlayerProfile,
   type SoloGameResult,
@@ -224,6 +226,10 @@ export class ApiClient {
       `/api/results/multiplayer?limit=${limit}&offset=${offset}`,
       multiplayerGameHistorySchema,
     );
+  }
+
+  async getMultiplayerStats(): Promise<MultiplayerStats> {
+    return this.validatedRequest('/api/stats/multiplayer', multiplayerStatsSchema);
   }
 
   async createMultiplayerRoom(): Promise<CreateMultiplayerRoomResponse> {

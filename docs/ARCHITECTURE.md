@@ -342,6 +342,9 @@ React gère :
 - sélection tactile des cailloux, avec zéro représenté par une sélection vide ;
 - pronostic par curseur `0..6`, avec exclusion de la valeur déjà annoncée ;
 - profils de table, réserves restantes, initiative et bulles de pronostic ;
+- orientation multijoueur canonique : `player-one` à gauche et `player-two` à
+  droite pour que profil, main, score et victoire restent cohérents entre les
+  deux navigateurs ;
 - état de session et appels API ;
 - orchestration du mode solo.
 
@@ -380,6 +383,10 @@ Le contrôleur :
 
 Le contrôleur multijoueur traduit les commandes, séquences et snapshots validés
 du package `protocol` sans réutiliser l’état local solo comme autorité.
+Les échéances publiques sont calculées par le serveur : le client en dérive un
+compte à rebours purement indicatif. Après une partie, la première commande
+« Rejouer » ouvre une fenêtre de réponse ; l’adversaire accepte ou refuse
+explicitement, puis le snapshot expose cette décision sans ambiguïté.
 
 ### Stockage navigateur
 
@@ -535,13 +542,15 @@ dernières sont des détails internes : l’adresse technique sous
 | `game_record` | Résultat terminal d'une partie solo ou en ligne | Identifiant stable unique ; mode, version de règles, dates, état terminal |
 | `game_participant` | Siège, adversaire, résultat et variation de réserve | Unicité partie + siège ; utilisateur nullable pour l'IA |
 | `multiplayer_game` | Résultat terminal autoritaire | `game_id` unique ; versions, graine, initiative et motif terminal |
-| `multiplayer_participant` | Deux sièges d’une partie en ligne | Unicité partie + siège ; utilisateur nullable après suppression |
+| `multiplayer_participant` | Deux sièges d’une partie en ligne et trace des Stones | Unicité partie + siège ; utilisateur nullable après suppression ; Stones avant, variation et après |
 | `multiplayer_round` | Transcript révélé des manches | Unicité partie + numéro ; choix, pronostics, somme et réserves cohérents |
 | `active_multiplayer_lease` | Bail expirant d’un compte actif | Un bail par compte ; jeton de propriétaire, heartbeat et expiration |
+| `player_stones` | Projection courante de la cote de duel | Un enregistrement par joueur coté ; valeur entière, initialisée à zéro ; nombre de duels cotés |
 
-Les statistiques v1 sont calculées depuis `game_record` et ne disposent pas
-d'une table de projection. Une telle projection ne sera ajoutée qu'après mesure
-d'un besoin de lecture.
+Le total « Parties jouées » additionne les résultats solo et multijoueurs.
+Les Stones forment une projection transactionnelle séparée, car leur calcul
+dépend de la valeur courante des deux adversaires. Les anciennes statistiques solo restent
+calculables mais ne sont plus présentées dans le profil.
 
 La v2 conserve uniquement le transcript métier révélé des manches terminées.
 Elle ne persiste ni journal réseau, ni commande refusée, ni temps de réflexion,
@@ -554,6 +563,8 @@ ni secret technique.
   pseudonyme de connexion reste la responsabilité de Better Auth.
 - `game_record` et `game_participant` sont source de vérité pour les résultats
   terminés.
+- `multiplayer_game`, ses participants et ses manches sont la preuve
+  autoritaire des duels ; `player_stones` est leur projection cotée courante.
 - les statistiques calculées sont une vue reconstructible depuis les résultats,
   jamais une preuve indépendante.
 - L'état mémoire Colyseus est source de vérité d'une partie en ligne active.
@@ -576,8 +587,8 @@ Conséquences :
 ## Transactions et idempotence
 
 - Une migration et une écriture métier sont deux préoccupations distinctes.
-- Résultat, participants et projection statistique sont écrits dans une même
-  transaction lorsque la projection existe.
+- Résultat, participants, transcript et projection de Stones sont écrits dans
+  une même transaction.
 - `gameId` est unique.
 - Répéter l'enregistrement du même résultat renvoie le résultat existant ou un
   succès équivalent.

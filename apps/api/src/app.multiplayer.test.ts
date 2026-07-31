@@ -190,4 +190,15 @@ describe('multiplayer admission routes', () => {
     });
     expect((await anonymous.request('/api/results/multiplayer')).status).toBe(401);
   });
+
+  it('exposes the authenticated player multiplayer games and Renown', async () => {
+    const authenticated = createApp(multiplayerDependencies({ userId: 'participant' }));
+    const anonymous = createApp(multiplayerDependencies());
+
+    const stats = await authenticated.request('/api/stats/multiplayer');
+
+    expect(stats.status).toBe(200);
+    await expect(stats.json()).resolves.toEqual({ gamesPlayed: 0, stones: 0 });
+    expect((await anonymous.request('/api/stats/multiplayer')).status).toBe(401);
+  });
 });

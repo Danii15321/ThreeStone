@@ -109,6 +109,7 @@ test('creates a username account, finishes a solo game and persists its result',
   await expect(page.getByRole('heading', { name: 'Choisissez la difficulté' })).toBeVisible();
   await page.getByRole('button', { name: 'Moyen' }).click();
   await expect(page.getByRole('status')).toContainText('Préparation de la table');
+  await expect(page.getByText('Difficulté · Moyen')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Ordinateur' })).toBeVisible();
   await expect(page.getByRole('region', { name: renamedUsername })).toBeVisible();
   await expect(page.getByRole('img', { name: `Avatar de ${renamedUsername}` })).toBeVisible();

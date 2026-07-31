@@ -33,6 +33,22 @@
   text-shadow: 0 3px 0 #2b150c;
 }
 
+.difficultyBadge {
+  display: inline-flex;
+  padding: 0.28rem 0.58rem;
+  margin-top: 0.35rem;
+  border: 1px solid rgb(235 188 111 / 48%);
+  border-radius: 999px;
+  color: #f1d5a4;
+  background: linear-gradient(145deg, rgb(113 70 42 / 78%), rgb(45 31 25 / 92%));
+  box-shadow: inset 0 0 0.8rem rgb(255 219 158 / 8%);
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  animation: badge-breathe 2.8s ease-in-out infinite alternate;
+}
+
 .eyebrow {
   margin: 0 0 0.25rem;
   color: var(--color-accent-light);
@@ -254,6 +270,12 @@
   flex: 0 0 auto;
   color: #9a5a2e;
   font-size: 1.1rem;
+  animation: rune-pulse 1.8s ease-in-out infinite;
+}
+
+.status > div:nth-of-type(1) {
+  flex: 1;
+  min-width: 0;
 }
 
 .status p {
@@ -263,6 +285,7 @@
 .statusTitle {
   font-weight: 800;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .status .reveal {
@@ -289,6 +312,7 @@
   box-shadow:
     var(--shadow-inset),
     0 1rem 2rem rgb(8 4 2 / 20%);
+  animation: panel-rise 280ms ease-out both;
 }
 
 .controlPanel legend {
@@ -487,32 +511,6 @@
   white-space: nowrap;
 }
 
-.reactionBar {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.45rem;
-  width: min(100%, 48rem);
-  margin: 0.75rem auto;
-}
-
-.reactionButton {
-  min-height: 2.35rem;
-  padding: 0.35rem 0.75rem;
-  border: 1px solid rgb(214 175 118 / 42%);
-  border-radius: 999px;
-  color: #ead9bf;
-  background: linear-gradient(180deg, #473127, #2b201b);
-  cursor: pointer;
-  font-size: 0.78rem;
-  font-weight: 800;
-}
-
-.reactionButton:hover {
-  border-color: #efc276;
-  color: #fff4df;
-}
-
 .reactionToast {
   position: fixed;
   z-index: 20;
@@ -574,6 +572,98 @@
   gap: 0.7rem;
 }
 
+.decisionTimer {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  min-width: 5.1rem;
+  min-height: 4.1rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid #9b693e;
+  border-radius: 0.65rem;
+  color: #4d2d1c;
+  background: rgb(255 247 226 / 42%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 28%);
+  line-height: 1;
+}
+
+.decisionTimer span {
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.decisionTimer strong {
+  font-family: var(--font-display);
+  font-size: 1.65rem;
+}
+
+.decisionTimer small {
+  font-size: 0.58rem;
+  font-weight: 800;
+}
+
+.decisionTimer[data-urgent='true'] {
+  border-color: #a43f2c;
+  color: #7c281c;
+  background: #f4c7ae;
+  animation: timer-urgent 650ms ease-in-out infinite alternate;
+}
+
+.rematchPrompt {
+  display: grid;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  margin: 1rem 0;
+  border: 1px solid rgb(238 190 111 / 52%);
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, rgb(101 62 39 / 68%), rgb(34 24 20 / 88%));
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  animation: panel-rise 320ms ease-out both;
+}
+
+.rematchPrompt h3,
+.rematchPrompt p,
+.rematchWaiting p,
+.rematchDeclined {
+  margin: 0;
+}
+
+.rematchPrompt h3 {
+  color: var(--color-heading);
+  font-family: var(--font-display);
+  font-size: clamp(1.15rem, 3vw, 1.65rem);
+}
+
+.rematchChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.rematchWaiting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  margin: 1rem 0;
+  border: 1px solid rgb(225 179 106 / 36%);
+  border-radius: 0.7rem;
+  color: #ead9bf;
+  background: rgb(30 21 18 / 42%);
+}
+
+.rematchDeclined {
+  padding: 0.8rem 1rem;
+  margin: 1rem 0;
+  border-left: 0.25rem solid #b85b45;
+  color: #f1c6b7;
+  background: rgb(116 50 37 / 22%);
+}
+
 @keyframes bubble-in {
   from {
     opacity: 0;
@@ -583,6 +673,39 @@
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes panel-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.45rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rune-pulse {
+  50% {
+    filter: drop-shadow(0 0 0.35rem rgb(164 88 39 / 54%));
+    transform: scale(1.16) rotate(45deg);
+  }
+}
+
+@keyframes badge-breathe {
+  to {
+    border-color: rgb(244 203 132 / 76%);
+    box-shadow: inset 0 0 1rem rgb(255 219 158 / 15%);
+  }
+}
+
+@keyframes timer-urgent {
+  to {
+    box-shadow: 0 0 0 0.25rem rgb(176 61 40 / 18%);
+    transform: scale(1.025);
   }
 }
 
@@ -712,6 +835,17 @@
     font-size: 0.82rem;
   }
 
+  .decisionTimer {
+    min-width: 4.2rem;
+    min-height: 3.5rem;
+    padding: 0.3rem 0.45rem;
+  }
+
+  .decisionTimer span {
+    max-width: 4rem;
+    text-align: center;
+  }
+
   .controlPanel {
     padding: 0.8rem;
   }
@@ -740,6 +874,20 @@
     min-width: 0;
     max-width: calc(100vw - 2rem);
   }
+
+  .rematchPrompt {
+    align-items: stretch;
+    grid-template-columns: 1fr auto;
+  }
+
+  .rematchPrompt > div:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .rematchChoices {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -748,6 +896,14 @@
   }
 
   .winnerCrown {
+    animation: none;
+  }
+
+  .controlPanel,
+  .decisionTimer,
+  .difficultyBadge,
+  .rematchPrompt,
+  .statusRune {
     animation: none;
   }
 

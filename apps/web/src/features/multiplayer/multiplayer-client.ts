@@ -329,15 +329,13 @@ export class MultiplayerClient {
   }
 }
 
-export function projectLocalSeats(state: MultiplayerClientState) {
+export function projectBoardSeats(state: MultiplayerClientState) {
   if (state.snapshot === null) {
     return null;
   }
-  const right = state.localPlayerId;
-  const left = right === 'player-one' ? 'player-two' : 'player-one';
   return {
-    left: { playerId: left, ...state.snapshot.players[left] },
-    right: { playerId: right, ...state.snapshot.players[right] },
+    left: { playerId: 'player-one' as const, ...state.snapshot.players['player-one'] },
+    right: { playerId: 'player-two' as const, ...state.snapshot.players['player-two'] },
   };
 }
 

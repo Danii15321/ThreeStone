@@ -619,7 +619,7 @@ export class AuthoritativeMatch {
     const nextDeadline = minimum([
       ...this.actionDeadlines.values(),
       ...[...this.disconnected.values()].map((state) => state.deadline),
-      ...(this.roomSession.rematch.deadline === null ? [] : [this.roomSession.rematch.deadline]),
+      ...(this.roomSession.nextDeadline === null ? [] : [this.roomSession.nextDeadline]),
     ]);
     if (nextDeadline === null) {
       return;

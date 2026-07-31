@@ -32,11 +32,11 @@ La livraison couvre :
 - choix cachés protégés, pronostics, révélation et victoire ;
 - délais, abandon, déconnexion et reprise directe ;
 - bail PostgreSQL expirant par compte ;
-- résultat et transcript de manches persistés sans doublon ;
-- revanche, score de session et réactions prédéfinies ;
+- résultat, transcript et transfert de Stones persistés sans doublon ;
+- demande de rejouer explicite et score de session ;
 - historique privé, accessibilité et charge initiale proportionnée.
 
-Elle n’inclut pas matchmaking public, classement, amis, chat libre, vocal,
+Elle n’inclut pas matchmaking public, classement public, amis, chat libre, vocal,
 spectateurs, replay public, achats, Redis ou multi-instance.
 
 L’option B de la spécification est l’hypothèse active : un joueur ne voit
@@ -109,7 +109,7 @@ flowchart TD
 | V2-05 | Création et admission sécurisées | V2-04 | Validé |
 | V2-06 | Partie à deux navigateurs | V2-05 | Validé |
 | V2-07 | Reprise et pannes maîtrisées | V2-06 | Validé |
-| V2-08 | Revanche, score, réactions, historique | V2-07 | Validé |
+| V2-08 | Rejouer, score et historique | V2-07 | Validé |
 | V2-09 | Sécurité, accessibilité et charge | V2-08 | Validé |
 | V2-10 | Déploiement v2 vérifié | V2-09 | Prêt localement — validation requise |
 
@@ -341,7 +341,10 @@ Permettre à deux navigateurs de créer, rejoindre et terminer une partie normal
 
 - création et saisie accessible du code ;
 - avatars, pseudos, présence et état prêt ;
-- joueur local projeté à droite sur les deux navigateurs ;
+- sièges, mains et score projetés dans la même orientation sur les deux
+  navigateurs ;
+- main victorieuse et couronne associées au même joueur depuis les deux points
+  de vue ;
 - choix caché local confirmé sans état de soumission adverse ;
 - ordre des pronostics et valeur déjà annoncée interdite ;
 - révélation identique sur les deux clients ;
@@ -416,7 +419,7 @@ social.
 
 - victoire normale, abandon ou délai ajoutant un point de session ;
 - annulation n’ajoutant aucun point ;
-- revanche exigeant deux accords sous 60 s ;
+- demande de rejouer affichée chez l’adversaire avec acceptation ou refus sous 60 s ;
 - premier annonçant initial alternant entre deux parties ;
 - réaction hors liste ou trop fréquente refusée ;
 - réaction éphémère, non persistée et masquable ;
@@ -426,20 +429,25 @@ social.
 
 ### GREEN
 
-- ajouter score et revanche à l’état mémoire du salon ;
-- ajouter les quatre réactions validées et leur limite de débit ;
-- persister le résultat et les manches dans une transaction idempotente ;
+- ajouter score et demande de rejouer à l’état mémoire du salon ;
+- conserver la validation des réactions du protocole 2 sans les exposer dans le client officiel ;
+- persister le résultat, les manches et le transfert de Stones dans une
+  transaction idempotente ;
 - exposer l’historique et un récapitulatif par manche ;
-- intégrer ces éléments à Mon compte sans classement public.
+- fusionner solo et multijoueur dans le Journal de jeu ;
+- afficher le total de parties et les Stones définies par
+  [`rules/stones-v2.md`](./rules/stones-v2.md), sans classement public.
 
 ### Porte V2-08
 
 - une série `2 – 1` fonctionne dans le même salon ;
-- les réactions n’acceptent aucun texte libre et ne produisent aucun son ;
+- aucun bouton de réaction n’est exposé dans la partie ;
 - graine et transcript reproduisent le déroulé validé ;
-- fermeture du salon efface score, réactions et jetons.
+- une répétition du même résultat ne modifie les Stones qu’une seule fois ;
+- une victoire courte transfère plus de Stones qu’une victoire longue ;
+- fermeture du salon efface score, état de rejeu, réactions de compatibilité et jetons.
 
-Commit suggéré : `feat(multiplayer): ajoute revanche score et historique`.
+Commit suggéré : `feat(multiplayer): ajoute rejouer score et historique`.
 
 ## 14. V2-09 — Durcissement proportionné
 
@@ -491,7 +499,7 @@ promettre une infrastructure prématurée.
 - appliquer et vérifier les migrations sur staging ;
 - ajouter liveness, readiness et smoke tests ;
 - exécuter deux comptes : partie normale, délai, abandon et reprise sans API ;
-- vérifier historique, score, revanche et anonymisation ;
+- vérifier historique, score, demande pour rejouer et anonymisation ;
 - exécuter le scénario de 20 salons ;
 - tester une fois le drainage et le retour à la version précédente ;
 - déployer en production puis ouvrir les créations de salons ;

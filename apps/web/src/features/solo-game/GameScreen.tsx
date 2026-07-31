@@ -7,6 +7,7 @@ import { normalizePredictionValue } from './game-controls.js';
 import {
   advanceRoundPresentation,
   createRoundPresentation,
+  difficultyLabel,
   getVisiblePredictions,
   type GameSeat,
   type RoundPresentation,
@@ -172,6 +173,9 @@ export function GameScreen({
             Partie solo · manche {presentation?.roundNumber ?? snapshot.roundNumber}
           </p>
           <h1>ThreeStone</h1>
+          <span className={styles.difficultyBadge}>
+            Difficulté · {difficultyLabel(preferences.difficulty)}
+          </span>
         </div>
         <button className={styles.secondaryButton} type="button" onClick={onExit}>
           Quitter la partie

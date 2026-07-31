@@ -98,14 +98,18 @@ compte. Toute future récupération sans email exige un ADR dédié.
 
 La page de compte comporte deux vues :
 
-- **Profil** : bannière, avatar, pseudonyme, bio, nombre de parties, victoires,
-  taux de victoire, dernières parties et déconnexion ;
+- **Profil** : bannière, avatar, pseudonyme, bio, nombre total de parties,
+  Stones multijoueur, Journal de jeu unifié et déconnexion ;
 - **Confidentialité** : panneaux repliables pour la bio et l’avatar, le
   pseudonyme de connexion, le mot de passe et la suppression.
 
 Le retour à l’accueil reste visible dans les deux vues. L’export de données
 n’est pas présenté dans l’interface v1 ; la capacité API existante reste
 réservée aux besoins de portabilité.
+
+La définition et la persistance des Stones relèvent de
+[`stones-v2.md`](./stones-v2.md). Les victoires et le taux de victoire ne sont
+plus présentés comme statistiques de profil.
 
 Le pseudonyme d’identité est modifiable par un joueur connecté. Better Auth
 conserve sa forme d’affichage et impose l’unicité de sa forme normalisée. La bio

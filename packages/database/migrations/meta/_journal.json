@@ -36,6 +36,20 @@
       "when": 1785421505934,
       "tag": "0004_strange_morgan_stark",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785455599264,
+      "tag": "0005_daffy_stryfe",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785459403953,
+      "tag": "0006_secret_diamondback",
+      "breakpoints": true
     }
   ]
 }

@@ -288,4 +288,20 @@ describe('API client boundary', () => {
       expect.objectContaining({ credentials: 'include', method: 'GET' }),
     );
   });
+
+  it('loads the authenticated player Renown', async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({ gamesPlayed: 4, stones: 37 })));
+    const client = new ApiClient('http://localhost:3001', fetcher);
+
+    await expect(client.getMultiplayerStats()).resolves.toEqual({
+      gamesPlayed: 4,
+      stones: 37,
+    });
+    expect(fetcher).toHaveBeenCalledWith(
+      'http://localhost:3001/api/stats/multiplayer',
+      expect.objectContaining({ credentials: 'include', method: 'GET' }),
+    );
+  });
 });

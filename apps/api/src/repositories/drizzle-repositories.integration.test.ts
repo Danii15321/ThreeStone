@@ -41,7 +41,9 @@ integration('Drizzle repositories against PostgreSQL', () => {
         emailVerified: true,
         id: 'user-a',
         name: 'First',
+        displayUsername: 'StoneMaster',
         updatedAt: NOW,
+        username: 'stonemaster',
       },
       {
         createdAt: NOW,
@@ -49,7 +51,9 @@ integration('Drizzle repositories against PostgreSQL', () => {
         emailVerified: true,
         id: 'user-b',
         name: 'Second',
+        displayUsername: 'RuneKeeper',
         updatedAt: NOW,
+        username: 'runekeeper',
       },
     ]);
   });
@@ -187,6 +191,7 @@ integration('Drizzle repositories against PostgreSQL', () => {
     if (database === null) return;
     const results = new DrizzleMultiplayerResultRepository(database.db);
     const history = new DrizzleMultiplayerHistoryRepository(database.db);
+    await new DrizzlePlayerRepository(database.db).saveProfile('user-b', 'Player', '', 0, NOW);
     await results.save(
       {
         completedAt: NOW,
@@ -232,7 +237,23 @@ integration('Drizzle repositories against PostgreSQL', () => {
 
     expect(first.items[0]?.rounds).toEqual(second.items[0]?.rounds);
     expect(first.items[0]?.localSeat).toBe('player-one');
+    expect(first.items[0]?.participants['player-two']).toMatchObject({
+      displayName: 'RuneKeeper',
+    });
+    expect(first.items[0]?.participants['player-one']).toMatchObject({
+      stonesAfter: 24,
+      stonesBefore: 0,
+      stonesDelta: 24,
+    });
     expect(second.items[0]?.localSeat).toBe('player-two');
+    await expect(history.stats('user-a')).resolves.toEqual({
+      gamesPlayed: 1,
+      stones: 24,
+    });
+    await expect(history.stats('user-b')).resolves.toEqual({
+      gamesPlayed: 1,
+      stones: -24,
+    });
     expect(outsider.total).toBe(0);
 
     await database.db.delete(schema.user).where(eq(schema.user.id, 'user-a'));

@@ -9,9 +9,12 @@ import {
 export interface RematchSnapshot {
   readonly accepted: Readonly<Record<PlayerId, boolean>>;
   readonly deadline: number | null;
+  readonly declinedBy: PlayerId | null;
 }
 
-export type RematchDecision = 'accepted' | 'ready' | 'unavailable';
+export type RematchDecision = 'accepted' | 'declined' | 'ready' | 'unavailable';
+
+const DECLINE_NOTICE_MS = 5_000;
 
 export class MultiplayerRoomSession {
   private accepted: Record<PlayerId, boolean> = {
@@ -19,6 +22,8 @@ export class MultiplayerRoomSession {
     'player-two': false,
   };
   private deadline: number | null = null;
+  private declinedBy: PlayerId | null = null;
+  private expiryDeadline: number | null = null;
   private readonly reactionTimes = new Map<PlayerId, number[]>();
   private session: MultiplayerSessionState;
 
@@ -37,7 +42,15 @@ export class MultiplayerRoomSession {
     return {
       accepted: { ...this.accepted },
       deadline: this.deadline,
+      declinedBy: this.declinedBy,
     };
+  }
+
+  get nextDeadline(): number | null {
+    const deadlines = [this.deadline, this.expiryDeadline].filter(
+      (value): value is number => value !== null,
+    );
+    return deadlines.length === 0 ? null : Math.min(...deadlines);
   }
 
   recordTerminalGame(game: GameState, now: number): void {
@@ -47,12 +60,33 @@ export class MultiplayerRoomSession {
     }
     this.session = transition.session;
     this.accepted = { 'player-one': false, 'player-two': false };
-    this.deadline = game.phase === 'finished' ? now + this.rematchMs : null;
+    this.deadline = null;
+    this.declinedBy = null;
+    this.expiryDeadline = game.phase === 'finished' ? now + this.rematchMs : null;
   }
 
   decideRematch(playerId: PlayerId, accept: boolean, now: number): RematchDecision {
-    if (this.deadline === null || this.deadline <= now) {
+    if (
+      this.declinedBy !== null ||
+      (this.deadline !== null && this.deadline <= now) ||
+      (this.deadline === null && this.expiryDeadline !== null && this.expiryDeadline <= now)
+    ) {
       return 'unavailable';
+    }
+    const otherPlayerId = playerId === 'player-one' ? 'player-two' : 'player-one';
+    if (!accept) {
+      if (this.accepted[playerId] || !this.accepted[otherPlayerId]) {
+        return 'unavailable';
+      }
+      this.declinedBy = playerId;
+      this.deadline = null;
+      this.expiryDeadline = now + DECLINE_NOTICE_MS;
+      return 'declined';
+    }
+
+    if (!this.accepted['player-one'] && !this.accepted['player-two']) {
+      this.deadline = now + this.rematchMs;
+      this.expiryDeadline = null;
     }
     this.accepted[playerId] = accept;
     return this.accepted['player-one'] && this.accepted['player-two'] ? 'ready' : 'accepted';
@@ -61,11 +95,13 @@ export class MultiplayerRoomSession {
   beginRematch(): void {
     this.accepted = { 'player-one': false, 'player-two': false };
     this.deadline = null;
+    this.declinedBy = null;
+    this.expiryDeadline = null;
     this.reactionTimes.clear();
   }
 
   rematchExpired(now: number): boolean {
-    return this.deadline !== null && this.deadline <= now;
+    return this.nextDeadline !== null && this.nextDeadline <= now;
   }
 
   acceptReaction(playerId: PlayerId, now: number): boolean {
@@ -86,6 +122,8 @@ export class MultiplayerRoomSession {
     this.session = createMultiplayerSession(this.session.sessionId);
     this.accepted = { 'player-one': false, 'player-two': false };
     this.deadline = null;
+    this.declinedBy = null;
+    this.expiryDeadline = null;
     this.reactionTimes.clear();
   }
 }

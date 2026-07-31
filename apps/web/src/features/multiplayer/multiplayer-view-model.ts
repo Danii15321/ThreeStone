@@ -1,5 +1,7 @@
 import type { RoomSnapshot, SeatObservation } from '@three-stone/protocol';
 
+import type { BoardPose } from '../../game/board-model.js';
+
 type PlayerId = 'player-one' | 'player-two';
 
 export interface MultiplayerControls {
@@ -38,24 +40,27 @@ export function deriveMultiplayerControls(
   };
 }
 
-export function mapRoundToLocalBoard(
-  round: RoomSnapshot['revealedRounds'][number],
-  localPlayerId: PlayerId,
-) {
-  const opponentId = otherPlayer(localPlayerId);
+export function mapRoundToBoard(round: RoomSnapshot['revealedRounds'][number]) {
   return {
     choices: {
-      human: round.choices[localPlayerId],
-      opponent: round.choices[opponentId],
+      human: round.choices['player-two'],
+      opponent: round.choices['player-one'],
     },
     dropStone:
       round.winner === null
         ? null
-        : round.winner === localPlayerId
-          ? ('human' as const)
-          : ('opponent' as const),
+        : round.winner === 'player-one'
+          ? ('opponent' as const)
+          : ('human' as const),
     total: round.total,
   };
+}
+
+export function boardPoseForWinner(winner: PlayerId | null): BoardPose {
+  if (winner === 'player-one') {
+    return 'ai-victory';
+  }
+  return winner === 'player-two' ? 'human-victory' : 'closed';
 }
 
 export function otherPlayer(playerId: PlayerId): PlayerId {

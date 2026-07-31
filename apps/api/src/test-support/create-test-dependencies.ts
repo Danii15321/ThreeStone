@@ -124,6 +124,11 @@ class TestMultiplayerHistoryRepository implements MultiplayerHistoryRepository {
     void userId;
     return { items: [], limit: query.limit, offset: query.offset, total: 0 };
   }
+
+  async stats(userId: string) {
+    void userId;
+    return { gamesPlayed: 0, stones: 0 };
+  }
 }
 
 export function createTestDependencies(

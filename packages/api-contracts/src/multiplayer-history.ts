@@ -14,6 +14,9 @@ const activeParticipantSchema = z.strictObject({
   displayName: z.string().min(1).max(32),
   finalReserve: reserveSchema,
   outcome: z.enum(['win', 'loss']),
+  stonesAfter: z.number().int(),
+  stonesBefore: z.number().int(),
+  stonesDelta: z.number().int(),
 });
 
 const deletedParticipantSchema = z.strictObject({
@@ -21,6 +24,9 @@ const deletedParticipantSchema = z.strictObject({
   displayName: z.literal('Joueur supprimé'),
   finalReserve: reserveSchema,
   outcome: z.enum(['win', 'loss']),
+  stonesAfter: z.number().int(),
+  stonesBefore: z.number().int(),
+  stonesDelta: z.number().int(),
 });
 
 export const multiplayerHistoryParticipantSchema = z.discriminatedUnion('deleted', [
@@ -87,8 +93,14 @@ export const multiplayerGameHistorySchema = z.strictObject({
   total: z.number().int().nonnegative(),
 });
 
+export const multiplayerStatsSchema = z.strictObject({
+  gamesPlayed: z.number().int().nonnegative(),
+  stones: z.number().int(),
+});
+
 export type MultiplayerGameHistory = z.infer<typeof multiplayerGameHistorySchema>;
 export type MultiplayerGameHistoryQuery = z.infer<typeof multiplayerGameHistoryQuerySchema>;
 export type MultiplayerGameSummary = z.infer<typeof multiplayerGameSummarySchema>;
 export type MultiplayerHistoryParticipant = z.infer<typeof multiplayerHistoryParticipantSchema>;
 export type MultiplayerRoundSummary = z.infer<typeof multiplayerRoundSummarySchema>;
+export type MultiplayerStats = z.infer<typeof multiplayerStatsSchema>;

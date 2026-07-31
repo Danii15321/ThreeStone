@@ -25,11 +25,13 @@ export {
   multiplayerGameSummarySchema,
   multiplayerHistoryParticipantSchema,
   multiplayerRoundSummarySchema,
+  multiplayerStatsSchema,
   type MultiplayerGameHistory,
   type MultiplayerGameHistoryQuery,
   type MultiplayerGameSummary,
   type MultiplayerHistoryParticipant,
   type MultiplayerRoundSummary,
+  type MultiplayerStats,
 } from './multiplayer-history.js';
 export {
   nicknameSchema,

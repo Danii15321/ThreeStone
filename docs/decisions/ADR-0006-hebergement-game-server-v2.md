@@ -12,11 +12,12 @@ Colyseus en mémoire et d’accepter des connexions WebSocket. Le client et l’
 v1 restent sur Vercel, et les données durables restent dans PostgreSQL Neon en
 Europe.
 
-Une fonction Vercel n’est pas retenue comme autorité initiale de la partie :
-son cycle de vie et son élasticité ne garantissent pas qu’un salon en mémoire
-reste attaché au même processus. Le support WebSocket de Vercel est en bêta au
-moment de cette décision, alors que la v2 recherche une topologie simple et
-prévisible.
+Une fonction Vercel n’est pas retenue comme autorité initiale de la partie.
+Vercel prend désormais en charge les WebSockets, mais une connexion reste liée
+à la durée maximale de sa fonction et une reconnexion n’est pas garantie de
+retrouver le même processus. Ce modèle ne convient pas encore aux salons
+Colyseus conservés en mémoire par la v2, qui recherche une topologie simple et
+prévisible sans état distribué.
 
 Render documente les Web Services Node long vivants, les connexions WebSocket,
 le TLS managé, les domaines personnalisés, les signaux d’arrêt et les
@@ -84,5 +85,5 @@ drainage applicatif préalable.
   ne garantit pas une reprise après remplacement de l’unique instance.
 - Une montée à plusieurs instances exigera une nouvelle décision sur
   l’affinité, la présence distribuée et l’état de reprise.
-- Aucun service Render n’est créé par cette décision. Le déploiement reste
-  interdit jusqu’à validation explicite du propriétaire du projet.
+- La création ou la modification d’un service Render reste une opération de
+  livraison explicitement validée par le propriétaire du projet.

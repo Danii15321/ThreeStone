@@ -4,7 +4,7 @@ import type { CreateMultiplayerRoomResponse } from '@three-stone/api-contracts';
 
 import {
   MultiplayerClient,
-  projectLocalSeats,
+  projectBoardSeats,
   type MultiplayerRoomConnection,
   type MultiplayerRoomConnector,
 } from './multiplayer-client.js';
@@ -16,6 +16,11 @@ const ADMISSION: CreateMultiplayerRoomResponse = {
   roomId: '019b15db-9829-7b46-a6a5-6cfcb1ca84c5',
   ticket: 'signed-admission-ticket-that-is-long-enough-for-the-contract',
   ticketExpiresAt: '2026-07-30T18:00:45.000Z',
+};
+
+const PLAYER_ONE_ADMISSION: CreateMultiplayerRoomResponse = {
+  ...ADMISSION,
+  playerId: 'player-one',
 };
 
 class FakeRoom implements MultiplayerRoomConnection {
@@ -72,6 +77,7 @@ function snapshot(sequence: number) {
     rematch: {
       accepted: { 'player-one': false, 'player-two': false },
       deadline: null,
+      declinedBy: null,
     },
     reserves: { 'player-one': 3, 'player-two': 3 },
     revealedRounds: [],
@@ -86,12 +92,12 @@ function snapshot(sequence: number) {
   };
 }
 
-function setup() {
+function setup(admission = ADMISSION) {
   const room = new FakeRoom();
   const connector: MultiplayerRoomConnector = {
     connect: vi.fn(async () => room),
   };
-  const client = new MultiplayerClient(ADMISSION, connector, () => 'command-id-0001');
+  const client = new MultiplayerClient(admission, connector, () => 'command-id-0001');
   return { client, connector, room };
 }
 
@@ -107,18 +113,20 @@ describe('MultiplayerClient', () => {
     expect(client.getState()).not.toHaveProperty('ticket');
   });
 
-  it('keeps the newest snapshot and always projects the local player on the right', async () => {
-    const { client, room } = setup();
-    await client.connect();
+  it('keeps canonical board seats from both players viewpoints', async () => {
+    for (const admission of [PLAYER_ONE_ADMISSION, ADMISSION]) {
+      const { client, room } = setup(admission);
+      await client.connect();
 
-    room.emit('room.snapshot', snapshot(4));
-    room.emit('room.snapshot', snapshot(3));
+      room.emit('room.snapshot', snapshot(4));
+      room.emit('room.snapshot', snapshot(3));
 
-    expect(client.getState().snapshot?.sequence).toBe(4);
-    expect(projectLocalSeats(client.getState())).toMatchObject({
-      left: { playerId: 'player-one', username: 'Astrid' },
-      right: { playerId: 'player-two', username: 'Bjorn' },
-    });
+      expect(client.getState().snapshot?.sequence).toBe(4);
+      expect(projectBoardSeats(client.getState())).toMatchObject({
+        left: { playerId: 'player-one', username: 'Astrid' },
+        right: { playerId: 'player-two', username: 'Bjorn' },
+      });
+    }
   });
 
   it('stores only the local hidden choice and rejects extra private fields', async () => {

@@ -76,6 +76,7 @@ export const roomSnapshotSchema = z.strictObject({
   rematch: z.strictObject({
     accepted: playerMap(z.boolean()),
     deadline: z.number().int().nonnegative().nullable(),
+    declinedBy: playerIdSchema.nullable(),
   }),
 });
 
@@ -123,6 +124,7 @@ export interface SnapshotContext {
   readonly rematch: {
     readonly accepted: Readonly<Record<PlayerId, boolean>>;
     readonly deadline: number | null;
+    readonly declinedBy: PlayerId | null;
   };
   readonly sessionScore: Readonly<Record<PlayerId, number>>;
   readonly players: Readonly<Record<PlayerId, PublicPlayer>>;
@@ -151,6 +153,7 @@ export function createPublicSnapshot(state: GameState, context: SnapshotContext)
     rematch: {
       accepted: { ...context.rematch.accepted },
       deadline: context.rematch.deadline,
+      declinedBy: context.rematch.declinedBy,
     },
   });
 }

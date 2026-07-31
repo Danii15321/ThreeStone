@@ -26,6 +26,8 @@ Documents de référence :
 - [`rules/game-rules-v1.md`](./rules/game-rules-v1.md) : règles du jeu ;
 - [`rules/account-and-data-v1.md`](./rules/account-and-data-v1.md) : compte et
   données ;
+- [`rules/stones-v2.md`](./rules/stones-v2.md) : cote de duel et statistiques du
+  profil ;
 - [`../AGENTS.md`](../AGENTS.md) : standards de développement.
 
 En cas de divergence, cette spécification prévaut uniquement pour le mode
@@ -42,9 +44,9 @@ Deux personnes authentifiées doivent pouvoir :
 4. perdre normalement en cas d’abandon ou de délai dépassé ;
 5. reprendre leur siège après une coupure réseau raisonnable ;
 6. consulter le détail des manches après la partie ;
-7. demander une revanche sans recréer le salon ;
+7. demander à rejouer sans recréer le salon, puis accepter ou refuser la demande ;
 8. voir le score de leur session, par exemple `2 – 1` ;
-9. envoyer quelques réactions prédéfinies sans ouvrir un canal de discussion.
+9. voir leurs Stones évoluer après chaque duel terminé.
 
 ### 2.1 Inclus dans la v2
 
@@ -52,9 +54,11 @@ Deux personnes authentifiées doivent pouvoir :
 - présence, état prêt et lancement synchronisé ;
 - gameplay complet selon les règles `1.0.0` ;
 - délais, abandon, déconnexion et reconnexion ;
+- compte à rebours visible pour chaque décision chronométrée ;
 - score de session non classé et non persistant ;
-- réactions prédéfinies ;
+- demande explicite pour rejouer, acceptée ou refusée par l’adversaire ;
 - historique persistant et transcript validé des manches ;
+- Stones persistantes, calculées uniquement depuis les résultats autoritaires ;
 - récapitulatif ou replay privé aux participants ;
 - accessibilité clavier, lecteur d’écran et mouvement réduit ;
 - exploitation initiale sur une seule instance de serveur de jeu.
@@ -62,7 +66,7 @@ Deux personnes authentifiées doivent pouvoir :
 ### 2.2 Hors périmètre
 
 - matchmaking public ;
-- classement, Elo, ligues, saisons ou récompenses ;
+- classement public, tableau des meilleurs joueurs, ligues ou récompenses ;
 - liste d’amis ;
 - chat libre, messages privés ou vocal ;
 - spectateurs et replay public ;
@@ -114,8 +118,11 @@ Le salon affiche pour chaque siège :
 
 Les deux joueurs doivent être prêts. Le serveur lance la partie et attribue
 aléatoirement les sièges ainsi que le premier annonçant de la première manche.
-Le joueur local reste visuellement à droite sur son propre écran ; cette
-projection ne change pas l’identité des sièges serveur.
+`player-one` reste visuellement à gauche et `player-two` à droite dans les deux
+navigateurs. Le joueur local peut donc apparaître d’un côté ou de l’autre selon
+le siège attribué. Cette orientation canonique conserve la même association
+entre pseudonyme, profil, main, score, cailloux et pose de victoire pour les deux
+points de vue.
 
 ### 4.3 Partie et manches
 
@@ -144,47 +151,47 @@ serveur revérifie toujours :
 - séquence connue ;
 - identité et unicité de la commande.
 
-### 4.4 Fin, score de session et revanche
+### 4.4 Fin, score de session et rejouer
 
 Le salon conserve en mémoire un score de parties, par exemple `2 – 1`.
 
 - une victoire normale, par délai ou par abandon ajoute un point ;
 - une annulation technique n’ajoute aucun point ;
-- le score survit aux revanches dans le même salon ;
+- le score survit aux parties rejouées dans le même salon ;
 - il disparaît à la fermeture du salon ;
-- il n’alimente ni classement ni statistiques globales supplémentaires.
+- il reste distinct des Stones persistantes.
 
-Après la partie, chaque joueur peut consulter les manches et demander une
-revanche. Une nouvelle partie commence uniquement si les deux joueurs
-acceptent dans les 60 secondes. Le premier annonçant initial est alors celui
-qui ne l’était pas dans la partie précédente. À défaut d’accord, le salon se
-ferme proprement.
+Après la partie, chaque joueur peut consulter les manches et demander à
+**rejouer**. Le premier clic ouvre une demande explicite chez l’adversaire et
+démarre une fenêtre de réponse de 60 secondes. L’adversaire choisit
+**Accepter** ou **Refuser** ; une nouvelle partie commence uniquement après
+acceptation. Le premier annonçant initial est alors celui qui ne l’était pas
+dans la partie précédente. Un refus ou l’expiration ferme proprement le salon.
 
-### 4.5 Réactions
+### 4.5 Stones
 
-La v2 propose uniquement une liste contrôlée, par exemple :
+Chaque joueur commence à 0 Stone. Une partie autoritaire terminée
+transfère des Stones du perdant vers le vainqueur selon leur écart et le
+nombre de manches : une victoire rapide ou obtenue contre un adversaire mieux
+coté a plus d’impact. Les défaites par abandon, délai ou déconnexion sont
+cotées ; une annulation ne l’est jamais.
 
-- Bien joué ;
-- Joli bluff ;
-- Oups ;
-- Revanche ?
+La formule normative et ses exemples sont définis dans
+[`rules/stones-v2.md`](./rules/stones-v2.md).
 
-Une réaction :
+### 4.6 Réactions
 
-- est éphémère et n’est pas persistée ;
-- disparaît visuellement après environ trois secondes ;
-- possède un équivalent textuel annoncé au lecteur d’écran ;
-- ne déclenche aucun son ;
-- peut être masquée localement ;
-- est limitée à une toutes les deux secondes et trois sur dix secondes.
-
-Le serveur refuse toute valeur absente de la liste. Aucun texte libre n’est
-transporté.
+Le client officiel n’expose plus les boutons de réactions prédéfinies. Les
+messages `session.react` restent validés et limités dans le protocole 2 pour
+compatibilité avec une session déjà ouverte par une ancienne version du client,
+mais l’interface ThreeStone n’en émet aucun.
 
 ## 5. Délais, déconnexion et abandon
 
 Les délais sont calculés avec l’horloge monotone du serveur. L’heure et le
-compte à rebours du client sont seulement indicatifs.
+compte à rebours du client sont seulement indicatifs. Le client affiche le
+temps restant pendant les choix et pronostics, sans annoncer chaque seconde au
+lecteur d’écran. Le serveur reste seul responsable de l’expiration.
 
 Valeurs initiales :
 
@@ -193,7 +200,7 @@ Valeurs initiales :
 | Salon vide ou jamais prêt | 5 min |
 | Choix caché | 30 s par siège |
 | Pronostic | 20 s pour le siège actif |
-| Acceptation d’une revanche | 60 s |
+| Réponse à une demande « Rejouer » | 60 s après la demande |
 | Grâce de reconnexion | 60 s consécutives |
 | Budget cumulé de reconnexion | 120 s par siège et par partie |
 
@@ -461,7 +468,9 @@ ils sont annulés sans faux résultat.
 - horodatages et durée ;
 - version des règles et du protocole ;
 - attribution initiale et graine du moteur ;
-- transcript validé des manches.
+- transcript validé des manches ;
+- Stones avant, variation et Stones après pour chaque participant ;
+- projection courante des Stones des deux joueurs.
 
 Chaque ligne de transcript contient au minimum :
 
@@ -474,8 +483,9 @@ Chaque ligne de transcript contient au minimum :
 - réserves après résolution.
 
 La contrainte `(game_id, round_number)` est unique. La partie, les
-participants et les manches sont écrits dans la même transaction. Une nouvelle
-tentative avec le même `game_id` retourne le résultat déjà persisté.
+participants, les manches et le transfert de Stones sont écrits dans la même
+transaction. Une nouvelle tentative avec le même `game_id` retourne le
+résultat déjà persisté sans réappliquer le transfert.
 
 ### 11.2 Portée de la graine
 
@@ -581,7 +591,7 @@ visible. Le glissement d’un curseur possède des boutons ou touches
 équivalentes.
 
 Les phases, tours, délais, pronostics, révélations, résultats, pertes de
-connexion et réactions sont exposés en texte. Les régions live évitent les
+connexion et demandes pour rejouer sont exposés en texte. Les régions live évitent les
 répétitions ; elles n’annoncent jamais une information secrète ou l’état de
 soumission adverse.
 
@@ -647,7 +657,7 @@ Tests de contrat obligatoires :
 
 Tests obligatoires :
 
-- création, invitation, prêt, partie et revanche ;
+- création, invitation, prêt, partie et demande pour rejouer ;
 - ticket initial utilisé deux fois ;
 - reprise directe alors que l’API est indisponible ;
 - remplacement de connexion et rejet de l’ancienne génération ;
@@ -668,7 +678,7 @@ Scénarios critiques :
    secondes, pas après la grâce ;
 4. les deux joueurs ne choisissent rien et la partie s’annule ;
 5. un joueur se reconnecte directement sans API disponible ;
-6. une revanche fait évoluer le score de session ;
+6. une demande « Rejouer » acceptée lance une nouvelle partie et fait évoluer le score de session ;
 7. le transcript reproduit les manches ;
 8. le parcours est jouable au clavier et avec mouvement réduit.
 
@@ -698,7 +708,7 @@ l’usage réel.
 5. **M2.5 — Reprise directe**  
    Jeton rotatif, snapshot, générations et budgets de grâce.
 6. **M2.6 — Session sociale minimale**  
-   Score, revanche et réactions prédéfinies.
+   Score et demande explicite pour rejouer.
 7. **M2.7 — Historique**  
    Transaction terminale, récapitulatif et anonymisation.
 8. **M2.8 — Qualité et livraison**  
@@ -719,7 +729,7 @@ La v2 est livrable lorsque :
 - la reprise directe fonctionne sans API pour une coupure transitoire ;
 - un bail orphelin expire sans intervention manuelle ;
 - le résultat et les manches sont persistés une seule fois ;
-- le score, la revanche et les réactions fonctionnent ;
+- le score et la demande pour rejouer fonctionnent ;
 - le crash et le déploiement n’inventent pas de gagnant ;
 - les scénarios navigateur critiques passent ;
 - les seuils de charge proportionnés sont atteints ;
@@ -760,5 +770,5 @@ Cette révision :
 - traite explicitement le temps de réflexion comme une décision produit ;
 - remplace le verrou de partie active par un bail expirant ;
 - découple la reprise réseau normale de la disponibilité de l’API ;
-- ajoute un score de session et des réactions contrôlées ;
+- ajoute un score de session et une demande explicite pour rejouer ;
 - ramène les preuves de charge et d’exploitation à l’échelle du produit.

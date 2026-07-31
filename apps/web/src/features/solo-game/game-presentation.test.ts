@@ -3,10 +3,18 @@ import { describe, expect, it } from 'vitest';
 import {
   advanceRoundPresentation,
   createRoundPresentation,
+  difficultyLabel,
   getVisiblePredictions,
 } from './game-presentation.js';
 
 describe('solo round presentation', () => {
+  it('uses the three player-facing difficulty names', () => {
+    expect((['easy', 'normal', 'hard'] as const).map(difficultyLabel)).toEqual([
+      'Facile',
+      'Moyen',
+      'Difficile',
+    ]);
+  });
   it('shows the human prediction before the AI response when the human has initiative', () => {
     const presentation = createRoundPresentation({
       existingPredictions: { ai: null, human: null },

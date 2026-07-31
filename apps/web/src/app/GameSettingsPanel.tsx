@@ -53,23 +53,6 @@ export function GameSettingsPanel({ onClose, onPreferences, preferences }: GameS
             }
           />
         </label>
-
-        <label className={styles.settingRow}>
-          <span>
-            <strong>Réactions multijoueur</strong>
-            <small>Affichez ou masquez les réactions prédéfinies de votre adversaire.</small>
-          </span>
-          <input
-            type="checkbox"
-            checked={preferences.showReactions}
-            onChange={(event) =>
-              onPreferences({
-                ...preferences,
-                showReactions: event.target.checked,
-              })
-            }
-          />
-        </label>
       </div>
 
       <button className={styles.secondaryButton} type="button" onClick={onClose}>

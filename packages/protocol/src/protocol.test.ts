@@ -25,6 +25,7 @@ const context: SnapshotContext = {
   rematch: {
     accepted: { 'player-one': false, 'player-two': false },
     deadline: null,
+    declinedBy: null,
   },
   sessionScore: { 'player-one': 0, 'player-two': 0 },
   players: {
@@ -169,6 +170,7 @@ describe('public and private projections', () => {
       rematch: {
         accepted: { 'player-one': true, 'player-two': false },
         deadline: 61_000,
+        declinedBy: null,
       },
       sessionScore: { 'player-one': 2, 'player-two': 1 },
     });
@@ -177,6 +179,7 @@ describe('public and private projections', () => {
     expect(snapshot.rematch).toEqual({
       accepted: { 'player-one': true, 'player-two': false },
       deadline: 61_000,
+      declinedBy: null,
     });
   });
 

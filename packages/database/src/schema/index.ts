@@ -239,6 +239,9 @@ export const multiplayerParticipant = pgTable(
       .notNull()
       .references(() => multiplayerGame.gameId, { onDelete: 'cascade' }),
     outcome: text('outcome').notNull(),
+    stonesAfter: integer('stones_after').notNull().default(0),
+    stonesBefore: integer('stones_before').notNull().default(0),
+    stonesDelta: integer('stones_delta').notNull().default(0),
     seat: text('seat').notNull(),
     userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
   },
@@ -252,6 +255,19 @@ export const multiplayerParticipant = pgTable(
     primaryKey({ columns: [table.gameId, table.seat] }),
     index('multiplayer_participant_user_completed_idx').on(table.userId, table.gameId),
   ],
+);
+
+export const playerStones = pgTable(
+  'player_stones',
+  {
+    ratedGames: integer('rated_games').notNull().default(0),
+    stones: integer('stones').notNull().default(0),
+    updatedAt: timestamp('updated_at', { mode: 'date', withTimezone: true }).notNull(),
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => user.id, { onDelete: 'cascade' }),
+  },
+  (table) => [check('player_stones_games_check', sql`${table.ratedGames} >= 0`)],
 );
 
 export const multiplayerRound = pgTable(

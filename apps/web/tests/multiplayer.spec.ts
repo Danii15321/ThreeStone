@@ -119,14 +119,23 @@ test('two isolated browser contexts finish the same authoritative match', async 
 
     await expect(creator.getByRole('group', { name: 'Choisissez vos cailloux' })).toBeVisible();
     await expect(guest.getByRole('group', { name: 'Choisissez vos cailloux' })).toBeVisible();
-    await expect(creator.getByRole('region', { name: `${creatorName}, connecté` })).toHaveAttribute(
-      'data-side',
-      'right',
-    );
-    await expect(guest.getByRole('region', { name: `${guestName}, connecté` })).toHaveAttribute(
-      'data-side',
-      'right',
-    );
+    await expect(creator.getByRole('timer', { name: /Votre temps/ })).toBeVisible();
+    await expect(guest.getByRole('timer', { name: /Votre temps/ })).toBeVisible();
+    const creatorSide = await creator
+      .getByRole('region', { name: `${creatorName}, connecté` })
+      .getAttribute('data-side');
+    expect(creatorSide === 'left' || creatorSide === 'right').toBe(true);
+    const guestSide = creatorSide === 'left' ? 'right' : 'left';
+    for (const page of [creator, guest]) {
+      await expect(page.getByRole('region', { name: `${creatorName}, connecté` })).toHaveAttribute(
+        'data-side',
+        creatorSide!,
+      );
+      await expect(page.getByRole('region', { name: `${guestName}, connecté` })).toHaveAttribute(
+        'data-side',
+        guestSide,
+      );
+    }
     await expect(creator.getByRole('img', { name: `Avatar de ${creatorName}` })).toBeVisible();
     await expect(guest.getByRole('img', { name: `Avatar de ${creatorName}` })).toBeVisible();
 
@@ -193,19 +202,29 @@ test('two isolated browser contexts finish the same authoritative match', async 
       new RegExp(`${creatorName} célèbre sa victoire avec un pouce levé`),
     );
 
-    await expect(creator.getByLabel('Score de la série')).toContainText('0 – 1');
-    await expect(guest.getByLabel('Score de la série')).toContainText('1 – 0');
+    const expectedScore = creatorSide === 'left' ? '1 – 0' : '0 – 1';
+    for (const page of [creator, guest]) {
+      await expect(page.getByLabel('Score de la série')).toContainText(expectedScore);
+    }
 
-    await guest.getByRole('button', { name: 'Bien joué !' }).click();
-    await expect(creator.getByRole('status').filter({ hasText: 'Bien joué !' })).toBeVisible();
+    for (const page of [creator, guest]) {
+      await expect(page.getByRole('button', { name: 'Bien joué !' })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Joli bluff !' })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Oups !' })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Revanche ?' })).toHaveCount(0);
+    }
 
-    await creator.getByRole('button', { name: 'Demander une revanche' }).click();
-    await expect(creator.getByRole('button', { name: 'Revanche demandée' })).toBeDisabled();
-    await guest.getByRole('button', { name: 'Demander une revanche' }).click();
+    await creator.getByRole('button', { name: 'Rejouer' }).click();
+    await expect(creator.getByText(`Demande envoyée à ${guestName}.`)).toBeVisible();
+    await expect(
+      guest.getByRole('heading', { name: `${creatorName} souhaite rejouer` }),
+    ).toBeVisible();
+    await expect(guest.getByRole('timer', { name: /Temps pour répondre/ })).toBeVisible();
+    await guest.getByRole('button', { name: 'Accepter' }).click();
 
     await expect(creator.getByRole('group', { name: 'Choisissez vos cailloux' })).toBeVisible();
     await expect(guest.getByRole('group', { name: 'Choisissez vos cailloux' })).toBeVisible();
-    await expect(creator.getByLabel('Score de la série')).toContainText('0 – 1');
+    await expect(creator.getByLabel('Score de la série')).toContainText(expectedScore);
 
     for (const page of [creator, guest]) {
       await page.setViewportSize({ width: 390, height: 844 });

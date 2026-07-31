@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import type { RoomSnapshot } from '@three-stone/protocol';
 
-import { reactionLabel, statusMessage } from './multiplayer-presentation.js';
+import {
+  reactionLabel,
+  rematchPresentation,
+  remainingSeconds,
+  statusMessage,
+} from './multiplayer-presentation.js';
 
 const snapshot: RoomSnapshot = {
   actionDeadline: 1_775_000_020_000,
@@ -18,6 +23,7 @@ const snapshot: RoomSnapshot = {
   rematch: {
     accepted: { 'player-one': false, 'player-two': false },
     deadline: null,
+    declinedBy: null,
   },
   reserves: { 'player-one': 3, 'player-two': 3 },
   revealedRounds: [],
@@ -44,5 +50,31 @@ describe('multiplayer presentation', () => {
       'Oups !',
       'Revanche ?',
     ]);
+  });
+
+  it('rounds a server deadline up without displaying a negative countdown', () => {
+    expect(remainingSeconds(20_001, 10_000)).toBe(11);
+    expect(remainingSeconds(9_999, 10_000)).toBe(0);
+    expect(remainingSeconds(null, 10_000)).toBeNull();
+  });
+
+  it('makes an incoming replay request explicit for the second player', () => {
+    expect(
+      rematchPresentation(
+        {
+          ...snapshot,
+          phase: 'finished',
+          rematch: {
+            accepted: { 'player-one': true, 'player-two': false },
+            deadline: snapshot.serverNow + 60_000,
+            declinedBy: null,
+          },
+        },
+        'player-two',
+      ),
+    ).toEqual({
+      kind: 'incoming',
+      requesterName: 'Astrid',
+    });
   });
 });

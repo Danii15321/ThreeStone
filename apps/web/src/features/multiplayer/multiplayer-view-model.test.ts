@@ -3,8 +3,9 @@ import { describe, expect, it } from 'vitest';
 import type { RoomSnapshot, SeatObservation } from '@three-stone/protocol';
 
 import {
+  boardPoseForWinner,
   deriveMultiplayerControls,
-  mapRoundToLocalBoard,
+  mapRoundToBoard,
   stoneReserveLabel,
 } from './multiplayer-view-model.js';
 
@@ -22,6 +23,7 @@ const BASE_SNAPSHOT: RoomSnapshot = {
   rematch: {
     accepted: { 'player-one': false, 'player-two': false },
     deadline: null,
+    declinedBy: null,
   },
   reserves: { 'player-one': 2, 'player-two': 3 },
   revealedRounds: [],
@@ -76,25 +78,28 @@ describe('multiplayer view model', () => {
     ).toEqual([0, 1, 2, 3, 5, 6]);
   });
 
-  it('maps a revealed round relative to the local right-hand seat', () => {
+  it('maps player-one to the left hand and player-two to the right hand', () => {
     expect(
-      mapRoundToLocalBoard(
-        {
-          choices: { 'player-one': 1, 'player-two': 2 },
-          initiative: 'player-one',
-          predictions: { 'player-one': 3, 'player-two': 4 },
-          reservesAfter: { 'player-one': 1, 'player-two': 3 },
-          roundNumber: 1,
-          total: 3,
-          winner: 'player-one',
-        },
-        'player-two',
-      ),
+      mapRoundToBoard({
+        choices: { 'player-one': 1, 'player-two': 2 },
+        initiative: 'player-one',
+        predictions: { 'player-one': 3, 'player-two': 4 },
+        reservesAfter: { 'player-one': 1, 'player-two': 3 },
+        roundNumber: 1,
+        total: 3,
+        winner: 'player-one',
+      }),
     ).toEqual({
       choices: { human: 2, opponent: 1 },
       dropStone: 'opponent',
       total: 3,
     });
+  });
+
+  it('keeps the winning hand identical for both viewpoints', () => {
+    expect(boardPoseForWinner('player-one')).toBe('ai-victory');
+    expect(boardPoseForWinner('player-two')).toBe('human-victory');
+    expect(boardPoseForWinner(null)).toBe('closed');
   });
 
   it.each([

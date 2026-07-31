@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
-import { and, eq, gt, lte } from 'drizzle-orm';
+import { calculateStonesExchange, INITIAL_STONES } from '@three-stone/game-core';
+import { and, asc, eq, gt, inArray, lte, sql } from 'drizzle-orm';
 
 import type { Database } from '../client/create-database.js';
 import {
@@ -8,6 +9,7 @@ import {
   multiplayerGame,
   multiplayerParticipant,
   multiplayerRound,
+  playerStones,
 } from '../schema/index.js';
 
 export type MultiplayerSeat = 'player-one' | 'player-two';
@@ -190,15 +192,78 @@ export class DrizzleMultiplayerResultRepository {
         .returning({ gameId: multiplayerGame.gameId });
 
       if (inserted !== undefined) {
+        const userIds = input.participants.map((participant) => participant.userId);
+        await transaction
+          .insert(playerStones)
+          .values(
+            userIds.map((userId) => ({
+              ratedGames: 0,
+              stones: INITIAL_STONES,
+              updatedAt: recordedAt,
+              userId,
+            })),
+          )
+          .onConflictDoNothing({ target: playerStones.userId });
+        const lockedStones = await transaction
+          .select({
+            stones: playerStones.stones,
+            userId: playerStones.userId,
+          })
+          .from(playerStones)
+          .where(inArray(playerStones.userId, userIds))
+          .orderBy(asc(playerStones.userId))
+          .for('update');
+        const winner = input.participants.find((participant) => participant.outcome === 'win');
+        const loser = input.participants.find((participant) => participant.outcome === 'loss');
+        if (winner === undefined || loser === undefined || lockedStones.length !== 2) {
+          throw new Error('A rated multiplayer result requires exactly one winner and one loser.');
+        }
+        const winnerBefore = stonesFor(lockedStones, winner.userId);
+        const loserBefore = stonesFor(lockedStones, loser.userId);
+        const exchange = calculateStonesExchange({
+          loserStones: loserBefore,
+          roundsPlayed: Math.max(1, input.rounds.length),
+          winnerStones: winnerBefore,
+        });
+        const ratingByUserId = new Map([
+          [
+            winner.userId,
+            { after: exchange.winnerAfter, before: winnerBefore, delta: exchange.delta },
+          ],
+          [
+            loser.userId,
+            { after: exchange.loserAfter, before: loserBefore, delta: -exchange.delta },
+          ],
+        ]);
+
         await transaction.insert(multiplayerParticipant).values(
-          input.participants.map((participant) => ({
-            finalReserve: participant.finalReserve,
-            gameId: input.gameId,
-            outcome: participant.outcome,
-            seat: participant.seat,
-            userId: participant.userId,
-          })),
+          input.participants.map((participant) => {
+            const rating = ratingByUserId.get(participant.userId);
+            if (rating === undefined) {
+              throw new Error('Missing participant Stones exchange.');
+            }
+            return {
+              finalReserve: participant.finalReserve,
+              gameId: input.gameId,
+              outcome: participant.outcome,
+              stonesAfter: rating.after,
+              stonesBefore: rating.before,
+              stonesDelta: rating.delta,
+              seat: participant.seat,
+              userId: participant.userId,
+            };
+          }),
         );
+        for (const [userId, rating] of ratingByUserId) {
+          await transaction
+            .update(playerStones)
+            .set({
+              ratedGames: sql`${playerStones.ratedGames} + 1`,
+              stones: rating.after,
+              updatedAt: recordedAt,
+            })
+            .where(eq(playerStones.userId, userId));
+        }
         if (input.rounds.length > 0) {
           await transaction.insert(multiplayerRound).values(
             input.rounds.map((round) => ({
@@ -232,6 +297,17 @@ export class DrizzleMultiplayerResultRepository {
       return { kind: 'existing', gameId: input.gameId };
     });
   }
+}
+
+function stonesFor(
+  ratings: readonly { readonly stones: number; readonly userId: string }[],
+  userId: string,
+): number {
+  const rating = ratings.find((candidate) => candidate.userId === userId);
+  if (rating === undefined) {
+    throw new Error('Missing locked player Stones.');
+  }
+  return rating.stones;
 }
 
 function assertFutureExpiry(now: Date, expiresAt: Date): void {

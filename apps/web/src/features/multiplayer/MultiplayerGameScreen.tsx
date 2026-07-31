@@ -4,23 +4,26 @@ import type {
   CreateMultiplayerRoomResponse,
   JoinMultiplayerRoomResponse,
 } from '@three-stone/api-contracts';
-import type { Reaction, RoomSnapshot } from '@three-stone/protocol';
+import type { RoomSnapshot } from '@three-stone/protocol';
 
 import { createBoardModel } from '../../game/board-model.js';
 import { PhaserBoard } from '../../game/PhaserBoard.js';
 import type { UserPreferences } from '../settings/preferences.js';
 import gameStyles from '../solo-game/GameScreen.module.css';
 import { normalizePredictionValue } from '../solo-game/game-controls.js';
-import { MultiplayerClient, projectLocalSeats } from './multiplayer-client.js';
+import { MultiplayerClient, projectBoardSeats } from './multiplayer-client.js';
 import { PlayerCard, PredictionSlider, StonePicker, WaitingRoom } from './MultiplayerGameParts.js';
 import {
+  boardPoseForWinner,
   deriveMultiplayerControls,
-  mapRoundToLocalBoard,
+  mapRoundToBoard,
   otherPlayer,
 } from './multiplayer-view-model.js';
 import {
   networkErrorMessage,
   reactionLabel,
+  rematchPresentation,
+  remainingSeconds,
   shouldReduceMotion,
   statusMessage,
 } from './multiplayer-presentation.js';
@@ -50,6 +53,16 @@ export function MultiplayerGameScreen({
   const readySent = useRef(false);
   const reducedMotion = shouldReduceMotion(preferences);
   const snapshot = network.snapshot;
+  const actionSeconds = useServerCountdown(
+    snapshot?.actionDeadline ?? null,
+    snapshot?.serverNow ?? 0,
+    snapshot?.sequence ?? 0,
+  );
+  const rematchSeconds = useServerCountdown(
+    snapshot?.rematch.deadline ?? null,
+    snapshot?.serverNow ?? 0,
+    snapshot?.sequence ?? 0,
+  );
 
   useEffect(() => {
     void client.connect().catch(() => undefined);
@@ -107,21 +120,20 @@ export function MultiplayerGameScreen({
 
   const localPlayerId = admission.playerId;
   const opponentPlayerId = otherPlayer(localPlayerId);
-  const seats = projectLocalSeats(network);
+  const seats = projectBoardSeats(network);
   const controls = deriveMultiplayerControls(snapshot, network.observation, localPlayerId);
   const activePrediction = controls.predictions.includes(predictionValue)
     ? predictionValue
     : (controls.predictions[0] ?? 0);
   const firstPrediction = snapshot.predictions[opponentPlayerId];
-  const boardRound = revealedRound ? mapRoundToLocalBoard(revealedRound, localPlayerId) : null;
+  const boardRound = revealedRound ? mapRoundToBoard(revealedRound) : null;
   const winner = snapshot.winner;
+  const rematch = rematchPresentation(snapshot, localPlayerId);
   const boardPose =
     boardRound !== null
       ? 'revealed'
       : snapshot.phase === 'finished'
-        ? winner === localPlayerId
-          ? 'human-victory'
-          : 'ai-victory'
+        ? boardPoseForWinner(winner)
         : 'closed';
   const boardModel = createBoardModel({
     dropStone:
@@ -132,8 +144,8 @@ export function MultiplayerGameScreen({
           : null,
     pose: boardPose,
     reserves: {
-      ai: snapshot.reserves[opponentPlayerId],
-      human: snapshot.reserves[localPlayerId],
+      ai: snapshot.reserves['player-one'],
+      human: snapshot.reserves['player-two'],
     },
     reveal:
       boardRound === null
@@ -180,10 +192,6 @@ export function MultiplayerGameScreen({
     window.setTimeout(onExit, reducedMotion ? 0 : 160);
   }
 
-  function react(reaction: Reaction): void {
-    client.send('session.react', { reaction });
-  }
-
   return (
     <main className={gameStyles.game} data-high-contrast={preferences.highContrast}>
       <header className={gameStyles.topbar}>
@@ -197,11 +205,11 @@ export function MultiplayerGameScreen({
       </header>
 
       <section className={gameStyles.sessionScore} aria-label="Score de la série">
-        <span>{seats?.left.username ?? 'Adversaire'}</span>
+        <span>{seats?.left.username ?? 'Joueur 1'}</span>
         <strong>
-          {snapshot.sessionScore[opponentPlayerId]} – {snapshot.sessionScore[localPlayerId]}
+          {snapshot.sessionScore['player-one']} – {snapshot.sessionScore['player-two']}
         </strong>
-        <span>{seats?.right.username ?? 'Joueur'}</span>
+        <span>{seats?.right.username ?? 'Joueur 2'}</span>
       </section>
 
       <section className={gameStyles.arena} aria-label="Table multijoueur">
@@ -216,30 +224,26 @@ export function MultiplayerGameScreen({
           <PlayerCard
             avatarUrl={seats?.left.avatarUrl}
             connected={seats?.left.connected ?? false}
-            initiative={snapshot.initiative === opponentPlayerId}
-            name={seats?.left.username ?? 'Adversaire'}
+            initiative={snapshot.initiative === 'player-one'}
+            name={seats?.left.username ?? 'Joueur 1'}
             prediction={
-              revealedRound?.predictions[opponentPlayerId] ??
-              snapshot.predictions[opponentPlayerId] ??
-              null
+              revealedRound?.predictions['player-one'] ?? snapshot.predictions['player-one'] ?? null
             }
-            reserve={snapshot.reserves[opponentPlayerId]}
+            reserve={snapshot.reserves['player-one']}
             side="left"
-            winner={winner === opponentPlayerId}
+            winner={winner === 'player-one'}
           />
           <PlayerCard
             avatarUrl={seats?.right.avatarUrl}
             connected={seats?.right.connected ?? false}
-            initiative={snapshot.initiative === localPlayerId}
-            name={seats?.right.username ?? 'Joueur'}
+            initiative={snapshot.initiative === 'player-two'}
+            name={seats?.right.username ?? 'Joueur 2'}
             prediction={
-              revealedRound?.predictions[localPlayerId] ??
-              snapshot.predictions[localPlayerId] ??
-              null
+              revealedRound?.predictions['player-two'] ?? snapshot.predictions['player-two'] ?? null
             }
-            reserve={snapshot.reserves[localPlayerId]}
+            reserve={snapshot.reserves['player-two']}
             side="right"
-            winner={winner === localPlayerId}
+            winner={winner === 'player-two'}
           />
         </div>
       </section>
@@ -262,6 +266,18 @@ export function MultiplayerGameScreen({
             <p className={gameStyles.error}>{networkErrorMessage(network.error)}</p>
           ) : null}
         </div>
+        {actionSeconds !== null &&
+        snapshot.phase !== 'finished' &&
+        snapshot.phase !== 'cancelled' ? (
+          <DecisionTimer
+            label={
+              controls.hiddenChoices.length > 0 || controls.predictions.length > 0
+                ? 'Votre temps'
+                : 'Décision en cours'
+            }
+            seconds={actionSeconds}
+          />
+        ) : null}
       </section>
 
       {preferences.showReactions && network.reaction ? (
@@ -269,21 +285,6 @@ export function MultiplayerGameScreen({
           <strong>{snapshot.players[network.reaction.playerId].username}</strong>
           <span>{reactionLabel(network.reaction.reaction)}</span>
         </div>
-      ) : null}
-
-      {snapshot.phase !== 'cancelled' ? (
-        <section className={gameStyles.reactionBar} aria-label="Réactions">
-          {(['well-played', 'nice-bluff', 'oops', 'rematch'] as const).map((reaction) => (
-            <button
-              className={gameStyles.reactionButton}
-              key={reaction}
-              type="button"
-              onClick={() => react(reaction)}
-            >
-              {reactionLabel(reaction)}
-            </button>
-          ))}
-        </section>
       ) : null}
 
       {controls.hiddenChoices.length > 0 ? (
@@ -312,24 +313,62 @@ export function MultiplayerGameScreen({
               ? 'Partie annulée'
               : winner === localPlayerId
                 ? 'Victoire !'
-                : `${seats?.left.username ?? 'Votre adversaire'} remporte la partie`}
+                : `${snapshot.players[opponentPlayerId].username} remporte la partie`}
           </h2>
           <p>
             {snapshot.phase === 'cancelled'
               ? 'Aucun résultat ni gagnant ne sera enregistré.'
               : `Le duel s’est joué en ${snapshot.roundNumber} manches.`}
           </p>
+          {snapshot.phase === 'finished' && rematch.kind === 'incoming' ? (
+            <section className={gameStyles.rematchPrompt} aria-labelledby="rematch-request-title">
+              <div>
+                <p className={gameStyles.eyebrow}>Demande reçue</p>
+                <h3 id="rematch-request-title">{rematch.requesterName} souhaite rejouer</h3>
+                <p>Acceptez ou refusez avant la fin du temps imparti.</p>
+              </div>
+              {rematchSeconds !== null ? (
+                <DecisionTimer label="Temps pour répondre" seconds={rematchSeconds} />
+              ) : null}
+              <div className={gameStyles.rematchChoices}>
+                <button
+                  className={gameStyles.primaryButton}
+                  type="button"
+                  onClick={() => client.send('session.rematch', { accept: true })}
+                >
+                  Accepter
+                </button>
+                <button
+                  className={gameStyles.secondaryButton}
+                  type="button"
+                  onClick={() => client.send('session.rematch', { accept: false })}
+                >
+                  Refuser
+                </button>
+              </div>
+            </section>
+          ) : null}
+          {snapshot.phase === 'finished' && rematch.kind === 'waiting' ? (
+            <div className={gameStyles.rematchWaiting} role="status">
+              <p>Demande envoyée à {rematch.opponentName}.</p>
+              {rematchSeconds !== null ? (
+                <DecisionTimer label="Temps de réponse" seconds={rematchSeconds} />
+              ) : null}
+            </div>
+          ) : null}
+          {snapshot.phase === 'finished' && rematch.kind === 'declined' ? (
+            <p className={gameStyles.rematchDeclined} role="status">
+              {rematch.playerName} a refusé de rejouer.
+            </p>
+          ) : null}
           <div className={gameStyles.resultActions}>
-            {snapshot.phase === 'finished' ? (
+            {snapshot.phase === 'finished' && rematch.kind === 'idle' ? (
               <button
                 className={gameStyles.primaryButton}
-                disabled={snapshot.rematch.accepted[localPlayerId]}
                 type="button"
                 onClick={() => client.send('session.rematch', { accept: true })}
               >
-                {snapshot.rematch.accepted[localPlayerId]
-                  ? 'Revanche demandée'
-                  : 'Demander une revanche'}
+                Rejouer
               </button>
             ) : null}
             <button className={gameStyles.secondaryButton} type="button" onClick={onExit}>
@@ -340,4 +379,45 @@ export function MultiplayerGameScreen({
       ) : null}
     </main>
   );
+}
+
+function DecisionTimer({ label, seconds }: { readonly label: string; readonly seconds: number }) {
+  return (
+    <div
+      className={gameStyles.decisionTimer}
+      data-urgent={seconds <= 5}
+      role="timer"
+      aria-label={`${label} : ${seconds} secondes`}
+    >
+      <span>{label}</span>
+      <strong>{seconds}</strong>
+      <small>s</small>
+    </div>
+  );
+}
+
+function useServerCountdown(
+  deadline: number | null,
+  serverNow: number,
+  sequence: number,
+): number | null {
+  const [seconds, setSeconds] = useState<number | null>(() =>
+    remainingSeconds(deadline, serverNow),
+  );
+
+  useEffect(() => {
+    const receivedAt = Date.now();
+    const update = () => {
+      const estimatedServerNow = serverNow + Math.max(0, Date.now() - receivedAt);
+      setSeconds(remainingSeconds(deadline, estimatedServerNow));
+    };
+    update();
+    if (deadline === null) {
+      return;
+    }
+    const timer = window.setInterval(update, 250);
+    return () => window.clearInterval(timer);
+  }, [deadline, sequence, serverNow]);
+
+  return seconds;
 }

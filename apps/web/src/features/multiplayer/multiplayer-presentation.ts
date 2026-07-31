@@ -4,6 +4,12 @@ import type { UserPreferences } from '../settings/preferences.js';
 
 type PlayerId = 'player-one' | 'player-two';
 
+export type RematchPresentation =
+  | { readonly kind: 'declined'; readonly playerName: string }
+  | { readonly kind: 'idle' }
+  | { readonly kind: 'incoming'; readonly requesterName: string }
+  | { readonly kind: 'waiting'; readonly opponentName: string };
+
 export function statusMessage(
   snapshot: RoomSnapshot,
   ownHiddenChoice: number | undefined,
@@ -60,6 +66,33 @@ export function reactionLabel(reaction: Reaction): string {
     rematch: 'Revanche ?',
   };
   return labels[reaction];
+}
+
+export function remainingSeconds(
+  deadline: number | null,
+  estimatedServerNow: number,
+): number | null {
+  return deadline === null ? null : Math.max(0, Math.ceil((deadline - estimatedServerNow) / 1_000));
+}
+
+export function rematchPresentation(
+  snapshot: RoomSnapshot,
+  localPlayerId: PlayerId,
+): RematchPresentation {
+  const opponentId = localPlayerId === 'player-one' ? 'player-two' : 'player-one';
+  if (snapshot.rematch.declinedBy !== null) {
+    return {
+      kind: 'declined',
+      playerName: snapshot.players[snapshot.rematch.declinedBy].username,
+    };
+  }
+  if (snapshot.rematch.accepted[opponentId] && !snapshot.rematch.accepted[localPlayerId]) {
+    return { kind: 'incoming', requesterName: snapshot.players[opponentId].username };
+  }
+  if (snapshot.rematch.accepted[localPlayerId]) {
+    return { kind: 'waiting', opponentName: snapshot.players[opponentId].username };
+  }
+  return { kind: 'idle' };
 }
 
 export function playerInitial(name: string): string {

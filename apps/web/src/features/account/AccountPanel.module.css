@@ -294,10 +294,10 @@
   display: grid;
   gap: 1rem;
   margin: 0;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: minmax(12rem, 0.8fr) minmax(18rem, 1.6fr);
 }
 
-.stats div {
+.stats > div {
   position: relative;
   overflow: hidden;
   min-height: 8.5rem;
@@ -324,13 +324,60 @@
   font-size: clamp(2rem, 5vw, 3rem);
 }
 
-.stats div > span {
-  position: absolute;
-  right: 1.35rem;
-  bottom: 1.1rem;
-  left: 1.35rem;
-  height: 0.18rem;
-  background: linear-gradient(90deg, var(--color-accent-light) 0 58%, rgb(237 196 119 / 14%) 58%);
+.stats .stonesStat {
+  display: grid;
+  align-items: center;
+  gap: clamp(0.8rem, 2vw, 1.4rem);
+  min-height: 11rem;
+  border-color: rgb(238 184 95 / 72%);
+  background:
+    radial-gradient(circle at 50% 25%, rgb(241 177 73 / 24%), transparent 46%),
+    linear-gradient(145deg, #64402b, #2d211b 76%);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 224 163 / 11%),
+    0 0 2.2rem rgb(224 139 52 / 13%),
+    var(--shadow-panel);
+  text-align: center;
+  grid-template-columns: minmax(5.5rem, 0.7fr) minmax(8rem, 1.3fr);
+}
+
+.stonesStat > img {
+  grid-row: 1 / 4;
+  width: 100%;
+  max-width: 8.5rem;
+  border: 1px solid rgb(244 198 119 / 42%);
+  border-radius: 50%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  box-shadow:
+    0 0 0 0.32rem rgb(42 27 20 / 38%),
+    0 0.7rem 1.8rem rgb(14 9 7 / 48%);
+}
+
+.stonesStat dt {
+  grid-column: 2;
+  color: #f1c878;
+  font-size: 0.82rem;
+  letter-spacing: 0.24em;
+}
+
+.stonesStat dd {
+  grid-column: 2;
+  margin-top: 0.3rem;
+  color: #fff1d2;
+  font-size: clamp(3.5rem, 8vw, 5.5rem);
+  line-height: 0.95;
+  text-shadow: 0 0.16rem 0 #3b2014;
+}
+
+.stonesStat small {
+  grid-column: 2;
+  display: block;
+  margin-top: 0.6rem;
+  color: #ceb997;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .history {
@@ -358,7 +405,8 @@
   font-size: 0.78rem;
 }
 
-.history ul {
+.history ul,
+.journalList {
   display: grid;
   gap: 0.55rem;
   padding: 0;
@@ -366,7 +414,8 @@
   list-style: none;
 }
 
-.history li {
+.history li,
+.soloJournalCard {
   display: grid;
   align-items: center;
   gap: 0.9rem;
@@ -378,12 +427,15 @@
   grid-template-columns: auto 1fr auto;
 }
 
-.history li > span:last-child {
+.history li > span:last-child,
+.soloJournalCard > span:last-child {
   text-align: right;
 }
 
 .history li strong,
-.history li small {
+.history li small,
+.soloJournalCard strong,
+.soloJournalCard small {
   display: block;
 }
 
@@ -400,12 +452,12 @@
 }
 
 .transcriptCard summary {
-  display: flex;
+  display: grid;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
   padding: 0.85rem 1rem;
   cursor: pointer;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   list-style: none;
 }
 
@@ -421,6 +473,25 @@
 .transcriptCard summary > span:last-child {
   color: var(--color-muted);
   font-size: 0.78rem;
+}
+
+.journalIdentity small {
+  color: var(--color-muted);
+}
+
+.stonesGain,
+.stonesLoss {
+  font-size: 0.78rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.stonesGain {
+  color: #c8d7aa;
+}
+
+.stonesLoss {
+  color: #f1b8a9;
 }
 
 .transcriptCard ol {
@@ -456,7 +527,17 @@
   color: #f0e5d3;
 }
 
+.soloJournalCard strong {
+  color: #f0e5d3;
+}
+
 .history li small {
+  margin-top: 0.2rem;
+  color: #9d8e7d;
+  font-size: 0.72rem;
+}
+
+.soloJournalCard small {
   margin-top: 0.2rem;
   color: #9d8e7d;
   font-size: 0.72rem;
@@ -797,7 +878,7 @@
     grid-template-columns: 1fr;
   }
 
-  .stats div {
+  .stats > div {
     min-height: 7rem;
   }
 
@@ -835,13 +916,24 @@
     font-size: 2.3rem;
   }
 
-  .history li {
+  .history li,
+  .soloJournalCard {
     grid-template-columns: auto 1fr;
   }
 
-  .history li > span:last-child {
+  .history li > span:last-child,
+  .soloJournalCard > span:last-child {
     grid-column: 2;
     text-align: left;
+  }
+
+  .transcriptCard summary {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .transcriptCard summary > span:nth-last-child(-n + 2) {
+    grid-column: 2;
+    justify-self: start;
   }
 
   .sectionHeading {

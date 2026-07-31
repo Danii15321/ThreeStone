@@ -59,6 +59,9 @@ importers:
       '@three-stone/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@three-stone/game-core':
+        specifier: workspace:*
+        version: link:../../packages/game-core
       '@three-stone/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -170,6 +173,9 @@ importers:
 
   packages/database:
     dependencies:
+      '@three-stone/game-core':
+        specifier: workspace:*
+        version: link:../game-core
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(kysely@0.28.17)(postgres@3.4.9)

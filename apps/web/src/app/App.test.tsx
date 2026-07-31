@@ -34,5 +34,6 @@ describe('ThreeStone application shell', () => {
     expect(html).not.toContain('Mode muet');
     expect(html).not.toContain('Volume des effets');
     expect(html).not.toContain('sons des boutons');
+    expect(html).not.toContain('Réactions multijoueur');
   });
 });

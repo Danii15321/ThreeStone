@@ -63,6 +63,12 @@ integration('multiplayer PostgreSQL repositories', () => {
     await database.db
       .delete(schema.multiplayerGame)
       .where(eq(schema.multiplayerGame.gameId, GAME_ID));
+    await database.db
+      .delete(schema.playerStones)
+      .where(eq(schema.playerStones.userId, 'multiplayer-user-a'));
+    await database.db
+      .delete(schema.playerStones)
+      .where(eq(schema.playerStones.userId, 'multiplayer-user-b'));
     await database.db.delete(schema.user).where(eq(schema.user.id, 'multiplayer-user-a'));
     await database.db.delete(schema.user).where(eq(schema.user.id, 'multiplayer-user-b'));
     await database.db.insert(schema.user).values([
@@ -190,6 +196,38 @@ integration('multiplayer PostgreSQL repositories', () => {
         .from(schema.multiplayerRound)
         .where(eq(schema.multiplayerRound.gameId, GAME_ID)),
     ).resolves.toHaveLength(1);
+
+    const stones = await database.db
+      .select()
+      .from(schema.playerStones)
+      .where(and(eq(schema.playerStones.ratedGames, 1), eq(schema.playerStones.updatedAt, NOW)));
+    expect(stones).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ stones: 24, userId: 'multiplayer-user-a' }),
+        expect.objectContaining({ stones: -24, userId: 'multiplayer-user-b' }),
+      ]),
+    );
+
+    const participants = await database.db
+      .select()
+      .from(schema.multiplayerParticipant)
+      .where(eq(schema.multiplayerParticipant.gameId, GAME_ID));
+    expect(participants).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          stonesAfter: 24,
+          stonesBefore: 0,
+          stonesDelta: 24,
+          seat: 'player-one',
+        }),
+        expect.objectContaining({
+          stonesAfter: -24,
+          stonesBefore: 0,
+          stonesDelta: -24,
+          seat: 'player-two',
+        }),
+      ]),
+    );
   });
 
   it('anonymizes only the deleted participant in the shared result', async () => {

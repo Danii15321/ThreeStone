@@ -7,6 +7,7 @@ import {
   joinMultiplayerRoomResponseSchema,
   multiplayerGameHistoryQuerySchema,
   multiplayerGameHistorySchema,
+  multiplayerStatsSchema,
   playerPreferencesSchema,
   playerProfileSchema,
   readinessResponseSchema,
@@ -326,6 +327,13 @@ export function createApp(dependencies?: ApiDependencies) {
     app.get('/api/stats/solo', async (context) =>
       context.json(
         soloStatsSchema.parse(await dependencies.resultsService.stats(context.get('userId'))),
+      ),
+    );
+    app.get('/api/stats/multiplayer', async (context) =>
+      context.json(
+        multiplayerStatsSchema.parse(
+          await dependencies.multiplayerHistoryService.stats(context.get('userId')),
+        ),
       ),
     );
     app.get('/api/account/export', async (context) => {

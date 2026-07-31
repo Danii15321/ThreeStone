@@ -1,3 +1,5 @@
+import type { Difficulty } from '../settings/preferences.js';
+
 export type GameSeat = 'ai' | 'human';
 export type RoundPresentationStage = 'first-predicted' | 'both-predicted' | 'revealed' | 'resolved';
 
@@ -69,4 +71,13 @@ export function getVisiblePredictions(
     ai: presentation.initiative === 'ai' ? presentation.reveal.predictions.ai : null,
     human: presentation.initiative === 'human' ? presentation.reveal.predictions.human : null,
   };
+}
+
+export function difficultyLabel(difficulty: Difficulty): string {
+  const labels: Record<Difficulty, string> = {
+    easy: 'Facile',
+    hard: 'Difficile',
+    normal: 'Moyen',
+  };
+  return labels[difficulty];
 }
