@@ -2,6 +2,7 @@ services:
   - type: web
     runtime: node
     name: three-stone-game-server
+    repo: https://github.com/Danii15321/ThreeStone
     branch: feat/v2-multiplayer
     region: frankfurt
     plan: free
