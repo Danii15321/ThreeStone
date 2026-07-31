@@ -7,6 +7,7 @@ import type {
 
 import type { ApiClient, SessionSnapshot } from '../../adapters/http/api-client.js';
 import type { UserPreferences } from '../settings/preferences.js';
+import { wakeGameServer } from './game-server-wakeup.js';
 import { MultiplayerGameScreen } from './MultiplayerGameScreen.js';
 import styles from './MultiplayerLobby.module.css';
 
@@ -15,6 +16,7 @@ type Step = 'join' | 'menu';
 
 interface MultiplayerLobbyProps {
   readonly client: ApiClient;
+  readonly gameServerUrl: string;
   readonly onExit: () => void;
   readonly onLogin: () => void;
   readonly preferences: UserPreferences;
@@ -23,6 +25,7 @@ interface MultiplayerLobbyProps {
 
 export function MultiplayerLobby({
   client,
+  gameServerUrl,
   onExit,
   onLogin,
   preferences,
@@ -32,30 +35,39 @@ export function MultiplayerLobby({
   const [code, setCode] = useState('');
   const [admission, setAdmission] = useState<Admission | null>(null);
   const [busy, setBusy] = useState(false);
+  const [busyMessage, setBusyMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function createRoom(): Promise<void> {
     setBusy(true);
+    setBusyMessage('Réveil du serveur multijoueur…');
     setError(null);
     try {
+      await wakeGameServer(gameServerUrl);
+      setBusyMessage('Préparation de votre table…');
       setAdmission(await client.createMultiplayerRoom());
     } catch (reason) {
       setError(messageFrom(reason));
     } finally {
       setBusy(false);
+      setBusyMessage(null);
     }
   }
 
   async function joinRoom(event: React.FormEvent): Promise<void> {
     event.preventDefault();
     setBusy(true);
+    setBusyMessage('Réveil du serveur multijoueur…');
     setError(null);
     try {
+      await wakeGameServer(gameServerUrl);
+      setBusyMessage('Recherche du salon…');
       setAdmission(await client.joinMultiplayerRoom(code));
     } catch (reason) {
       setError(messageFrom(reason));
     } finally {
       setBusy(false);
+      setBusyMessage(null);
     }
   }
 
@@ -148,9 +160,9 @@ export function MultiplayerLobby({
             </form>
           )}
 
-          {busy && step === 'menu' ? (
+          {busyMessage ? (
             <p className={styles.panelText} role="status">
-              Préparation de votre table…
+              {busyMessage}
             </p>
           ) : null}
           {error ? (
@@ -165,5 +177,8 @@ export function MultiplayerLobby({
 }
 
 function messageFrom(reason: unknown): string {
+  if (reason instanceof Error && reason.message === 'GAME_SERVER_WAKE_TIMEOUT') {
+    return 'Le serveur multijoueur met trop de temps à se réveiller. Réessayez dans un instant.';
+  }
   return reason instanceof Error ? reason.message : 'Le salon est momentanément indisponible.';
 }

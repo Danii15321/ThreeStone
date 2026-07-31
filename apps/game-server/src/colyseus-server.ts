@@ -8,7 +8,7 @@ import {
   type Server,
 } from '@colyseus/core';
 import { WebSocketTransport } from '@colyseus/ws-transport';
-import type { Application } from 'express';
+import type { Application, Request, Response } from 'express';
 import { z } from 'zod';
 
 import {
@@ -96,19 +96,36 @@ export function createGameServer(options: GameServerOptions): Server {
       if (internalAdmission !== undefined) {
         configureInternalAdmissionHttp(app, internalAdmission);
       }
-      configureHealthRoutes(app, options.isReady);
+      configureHealthRoutes(app, options.isReady, options.webOrigin);
     },
   });
 }
 
-function configureHealthRoutes(app: Application, isReady: () => boolean | Promise<boolean>): void {
-  app.get('/health/live', (_request, response) => {
+function configureHealthRoutes(
+  app: Application,
+  isReady: () => boolean | Promise<boolean>,
+  webOrigin?: string,
+): void {
+  app.get('/health/live', (request, response) => {
+    allowHealthProbeFromBrowser(request, response, webOrigin);
     response.status(200).json({ status: 'ok' });
   });
-  app.get('/health/ready', async (_request, response) => {
+  app.get('/health/ready', async (request, response) => {
+    allowHealthProbeFromBrowser(request, response, webOrigin);
     const ready = await isReady();
     response.status(ready ? 200 : 503).json({ status: ready ? 'ready' : 'unavailable' });
   });
+}
+
+function allowHealthProbeFromBrowser(
+  request: Request,
+  response: Response,
+  webOrigin?: string,
+): void {
+  if (webOrigin !== undefined && request.header('origin') === webOrigin) {
+    response.setHeader('access-control-allow-origin', webOrigin);
+    response.setHeader('vary', 'Origin');
+  }
 }
 
 function createThreeStoneRoomClass(dependencies: MatchDependencies) {

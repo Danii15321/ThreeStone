@@ -136,6 +136,7 @@ export function App() {
     return (
       <MultiplayerLobby
         client={apiClient}
+        gameServerUrl={import.meta.env.VITE_GAME_SERVER_URL ?? 'ws://127.0.0.1:2567'}
         onExit={() => setView('home')}
         onLogin={() => setView('account')}
         preferences={preferences}
