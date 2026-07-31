@@ -13,7 +13,8 @@ Auth, PostgreSQL, Drizzle et des contrats Zod stricts.
 
 ## Démarrage local
 
-Prérequis : Node.js `24.18.0` (voir `.nvmrc`), Corepack et Docker pour
+Prérequis recommandé en local : Node.js `24.18.0` (voir `.nvmrc`), avec une
+compatibilité garantie à partir de Node.js `24.15.0`, Corepack et Docker pour
 PostgreSQL.
 
 ```bash
