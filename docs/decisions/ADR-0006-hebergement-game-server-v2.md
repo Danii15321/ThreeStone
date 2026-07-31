@@ -32,9 +32,11 @@ connexions sans durée maximale imposée :
 
 - `apps/game-server` sera préparé pour un **Web Service Render** dans une région
   européenne proche de PostgreSQL.
-- La production utilisera une instance payante toujours active. Une instance
-  gratuite peut servir à une preview manuelle, jamais à la production : elle
-  peut s’endormir après quinze minutes sans trafic entrant et redémarrer.
+- Le prototype public utilise une instance gratuite. Elle peut s’endormir après
+  quinze minutes sans trafic entrant et demander environ une minute pour
+  redémarrer ; l’interface doit rendre ce réveil explicite. Le passage à une
+  production avec garantie de disponibilité exigera une instance payante
+  toujours active.
 - Le service écoute `0.0.0.0:$PORT`, expose HTTPS/WSS via le TLS Render et
   fournit `/health/live` et `/health/ready`.
 - La v2 commence sur exactement une instance. L’équilibrage multi-instance,

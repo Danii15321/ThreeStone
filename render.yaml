@@ -1,0 +1,31 @@
+services:
+  - type: web
+    runtime: node
+    name: three-stone-game-server
+    branch: feat/v2-multiplayer
+    region: frankfurt
+    plan: free
+    autoDeployTrigger: checksPass
+    buildCommand: >-
+      corepack enable && pnpm install --frozen-lockfile &&
+      pnpm --filter './packages/**' build &&
+      pnpm --filter @three-stone/game-server build
+    startCommand: pnpm --filter @three-stone/game-server start
+    healthCheckPath: /health/ready
+    envVars:
+      - key: NODE_VERSION
+        value: 24.18.0
+      - key: NODE_ENV
+        value: production
+      - key: WEB_ORIGIN
+        value: https://three-stone.vercel.app
+      - key: GAME_SERVER_INSTANCE_ID
+        value: three-stone-game-server
+      - key: DATABASE_MAX_CONNECTIONS
+        value: 5
+      - key: DATABASE_URL
+        sync: false
+      - key: GAME_SERVER_INTERNAL_SECRET
+        sync: false
+      - key: MULTIPLAYER_TICKET_SECRET
+        sync: false
