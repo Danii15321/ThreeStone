@@ -45,8 +45,7 @@ Commandes principales :
 
 ```bash
 pnpm check                 # format, lint, build, types et tests rapides
-TEST_DATABASE_URL="postgres://three_stone_game:local-development-only@localhost:5432/three_stone_game"
-pnpm test:integration
+TEST_DATABASE_URL="postgres://three_stone_game:local-development-only@localhost:5432/three_stone_game" pnpm test:integration
 pnpm test:e2e              # parcours Chromium, Firefox et WebKit
 pnpm test:multiplayer      # domaine autoritaire et serveur Colyseus
 pnpm test:load:multiplayer # 20 salons et 40 connexions

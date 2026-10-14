@@ -3,8 +3,8 @@
 - Statut : proposition révisée
 - Version du document : `0.2.0`
 - Version produit cible : `v2`
-- Version des règles : `1.0.0`
-- Version initiale du protocole : `2.0`
+- Version des règles : `1.1.0` (boucle de jeu commune inchangée)
+- Version du protocole : `3`, avec acceptation des commandes `2`
 - Date : 2026-07-30
 
 ## 1. Objet
@@ -52,7 +52,7 @@ Deux personnes authentifiées doivent pouvoir :
 
 - salons privés de deux joueurs ;
 - présence, état prêt et lancement synchronisé ;
-- gameplay complet selon les règles `1.0.0` ;
+- gameplay complet selon les règles `1.1.0` ;
 - délais, abandon, déconnexion et reconnexion ;
 - compte à rebours visible pour chaque décision chronométrée ;
 - score de session non classé et non persistant ;
@@ -196,7 +196,7 @@ La formule normative et ses exemples sont définis dans
 ### 4.6 Réactions
 
 Le client officiel n’expose plus les boutons de réactions prédéfinies. Les
-messages `session.react` restent validés et limités dans le protocole 2 pour
+messages `session.react` restent validés et limités dans le protocole 3 pour
 compatibilité avec une session déjà ouverte par une ancienne version du client,
 mais l’interface ThreeStone n’en émet aucun.
 
@@ -370,7 +370,7 @@ Tout message client possède l’enveloppe conceptuelle suivante :
 
 ```ts
 type ClientCommand<T> = {
-  protocolVersion: 2;
+  protocolVersion: 3;
   type: string;
   commandId: string;
   roomId: string;
@@ -409,6 +409,12 @@ erreur explicite et sans exposer d’information sur le salon.
 
 Les erreurs publiques restent finies, traduisibles et sans détail interne.
 Les commandes ont une taille maximale stricte.
+
+Les commandes de version `2` restent acceptées à l'entrée pour compatibilité.
+Les réponses et snapshots utilisent toujours la version `3` ; accepter une
+ancienne commande ne garantit donc pas qu'un ancien client puisse lire ces
+réponses. Le client, l'API et le serveur de jeu doivent être livrés ensemble
+avec le contrat courant.
 
 ## 9. Admission et reprise sans dépendance HTTP
 
