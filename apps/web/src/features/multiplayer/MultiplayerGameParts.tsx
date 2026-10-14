@@ -1,14 +1,16 @@
-import type { RoomSnapshot } from '@three-stone/protocol';
+import type { RoomSnapshot, StonesClass } from '@three-stone/protocol';
 
 import gameStyles from '../solo-game/GameScreen.module.css';
 import { stoneReserveLabel } from './multiplayer-view-model.js';
 import {
   networkErrorMessage,
   playerInitial,
+  playerStoneClassLabel,
   pregameWaitingMessage,
   waitingConnectionMessage,
 } from './multiplayer-presentation.js';
 import lobbyStyles from './MultiplayerLobby.module.css';
+import stonesStyles from './MultiplayerStones.module.css';
 
 type PlayerId = 'player-one' | 'player-two';
 
@@ -96,6 +98,14 @@ export function PlayersWaitingRoom({
                   )}
                 </div>
                 <strong>{player.username}</strong>
+                <div
+                  aria-label={playerStoneClassLabel(player.stones, player.stoneClass)}
+                  className={stonesStyles.playerStanding}
+                  data-stone-class={player.stoneClass}
+                >
+                  <strong>Classe {player.stoneClass}</strong>
+                  <span>{player.stones} Stones</span>
+                </div>
                 <span data-connected={player.connected}>
                   {player.connected
                     ? snapshot.ready[playerId]
@@ -125,6 +135,8 @@ export function PlayerCard({
   prediction,
   reserve,
   side,
+  stoneClass,
+  stones,
   winner,
 }: {
   readonly avatarUrl?: string | null | undefined;
@@ -134,6 +146,8 @@ export function PlayerCard({
   readonly prediction: number | null;
   readonly reserve: number;
   readonly side: 'left' | 'right';
+  readonly stoneClass: StonesClass;
+  readonly stones: number;
   readonly winner: boolean;
 }) {
   return (
@@ -162,6 +176,14 @@ export function PlayerCard({
           )}
         </div>
         <strong>{name}</strong>
+        <div
+          aria-label={playerStoneClassLabel(stones, stoneClass)}
+          className={stonesStyles.playerStanding}
+          data-stone-class={stoneClass}
+        >
+          <strong>Classe {stoneClass}</strong>
+          <span>{stones} Stones</span>
+        </div>
         <div className={gameStyles.reserve} aria-label={stoneReserveLabel(reserve)}>
           <span className={gameStyles.miniStones} aria-hidden="true">
             {Array.from({ length: reserve }, (_, index) => (

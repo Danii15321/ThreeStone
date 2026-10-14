@@ -58,7 +58,8 @@ Deux personnes authentifiées doivent pouvoir :
 - score de session non classé et non persistant ;
 - demande explicite pour rejouer, acceptée ou refusée par l’adversaire ;
 - historique persistant et transcript validé des manches ;
-- Stones persistantes, calculées uniquement depuis les résultats autoritaires ;
+- Stones persistantes, classes B/A/S et récompenses de pierre calculées
+  uniquement depuis les résultats autoritaires ;
 - récapitulatif ou replay privé aux participants ;
 - accessibilité clavier, lecteur d’écran et mouvement réduit ;
 - exploitation initiale sur une seule instance de serveur de jeu.
@@ -66,7 +67,8 @@ Deux personnes authentifiées doivent pouvoir :
 ### 2.2 Hors périmètre
 
 - matchmaking public ;
-- classement public, tableau des meilleurs joueurs, ligues ou récompenses ;
+- classement public ou tableau des meilleurs joueurs ;
+- progression cosmétique, inventaire ou récompense donnant un avantage de jeu ;
 - liste d’amis ;
 - chat libre, messages privés ou vocal ;
 - spectateurs et replay public ;
@@ -175,6 +177,18 @@ transfère des Stones du perdant vers le vainqueur selon leur écart et le
 nombre de manches : une victoire rapide ou obtenue contre un adversaire mieux
 coté a plus d’impact. Les défaites par abandon, délai ou déconnexion sont
 cotées ; une annulation ne l’est jamais.
+
+Trois accomplissements autoritaires ajoutent des Stones personnelles : Main de
+pierre `+3` par occurrence avec un plafond de quatre, Œil en pierre `+9` après
+trois pronostics exacts consécutifs, et Cœur de pierre `+6` pour une victoire
+normale après avoir été exactement mené 3 cailloux contre 1. Ils sont
+cumulables et peuvent rendre positive la variation nette du perdant.
+
+Une paire non ordonnée de comptes dispose de cinq duels cotés par fenêtre
+glissante de 24 heures. Les suivants sont annoncés comme amicaux et ne
+modifient ni Stones ni classe. Les classes publiques sont B sous 100 Stones, A
+de 100 à 499, et S à partir de 500. Elles apparaissent avec les Stones sur les
+profils de salle et dans le récapitulatif terminal des deux joueurs.
 
 La formule normative et ses exemples sont définis dans
 [`rules/stones-v2.md`](./rules/stones-v2.md).

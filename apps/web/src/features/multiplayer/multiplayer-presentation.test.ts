@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RoomSnapshot } from '@three-stone/protocol';
+import { PROTOCOL_VERSION, type RoomSnapshot } from '@three-stone/protocol';
 
 import {
   pregameWaitingMessage,
@@ -16,11 +16,23 @@ const snapshot: RoomSnapshot = {
   initiative: 'player-one',
   phase: 'first-prediction',
   players: {
-    'player-one': { avatarUrl: null, connected: true, username: 'Astrid' },
-    'player-two': { avatarUrl: null, connected: false, username: 'Bjorn' },
+    'player-one': {
+      avatarUrl: null,
+      connected: true,
+      stoneClass: 'B',
+      stones: 0,
+      username: 'Astrid',
+    },
+    'player-two': {
+      avatarUrl: null,
+      connected: false,
+      stoneClass: 'B',
+      stones: 0,
+      username: 'Bjorn',
+    },
   },
   predictions: {},
-  protocolVersion: 2,
+  protocolVersion: PROTOCOL_VERSION,
   ready: { 'player-one': true, 'player-two': true },
   rematch: {
     accepted: { 'player-one': false, 'player-two': false },
@@ -34,6 +46,7 @@ const snapshot: RoomSnapshot = {
   sequence: 8,
   serverNow: 1_775_000_000_000,
   sessionScore: { 'player-one': 0, 'player-two': 0 },
+  stonesSettlement: null,
   terminalReason: null,
   type: 'room.snapshot',
   winner: null,

@@ -8,6 +8,8 @@ interface SeatProjection {
   readonly identity: {
     readonly avatarUrl: string | null;
     readonly playerId: PlayerId;
+    readonly stoneClass?: 'A' | 'B' | 'S';
+    readonly stones?: number;
     readonly userId: string;
     readonly username: string;
   };
@@ -17,6 +19,8 @@ export function publicPlayer(seat: SeatProjection): PublicPlayer {
   return {
     avatarUrl: seat.identity.avatarUrl,
     connected: seat.connection !== null,
+    stoneClass: seat.identity.stoneClass ?? 'B',
+    stones: seat.identity.stones ?? 0,
     username: seat.identity.username,
   };
 }

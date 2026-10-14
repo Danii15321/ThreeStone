@@ -1,6 +1,20 @@
 import type { PlayerId } from '@three-stone/game-core';
+import type { StonesSettlement } from '@three-stone/protocol';
+
+export type TerminalResultSaveOutcome =
+  | { readonly kind: 'contradiction' }
+  | {
+      readonly gameId?: string;
+      readonly kind: 'created' | 'existing';
+      /**
+       * Absent only while a retrying adapter has acknowledged a transient
+       * outage. Durable repositories return the authoritative settlement.
+       */
+      readonly settlement?: StonesSettlement;
+    };
 
 export interface TerminalResultRepository {
+  onSettlement?(gameId: string, listener: (settlement: StonesSettlement) => void): () => void;
   save(
     input: {
       readonly completedAt: Date;
@@ -37,5 +51,5 @@ export interface TerminalResultRepository {
       readonly winner: PlayerId;
     },
     recordedAt: Date,
-  ): Promise<{ readonly kind: 'contradiction' } | { readonly kind: 'created' | 'existing' }>;
+  ): Promise<TerminalResultSaveOutcome>;
 }

@@ -1041,6 +1041,20 @@ La v2 n'est pas bloquée par ce lot facultatif.
 - pseudonyme selon politique de confidentialité ;
 - suppression de compte selon matrice de données.
 
+## O2-10 — Progression Stones et artefacts
+
+- delta de base dépendant du niveau adverse et du nombre de manches ;
+- classes B sous 100, A de 100 à 499 et S à partir de 500 Stones ;
+- Main de pierre `+3` par occurrence, plafonnée à quatre par duel ;
+- Œil en pierre `+9` après trois pronostics exacts consécutifs ;
+- Cœur de pierre `+6` après une victoire normale du joueur précédemment mené
+  exactement `3` cailloux à `1` ;
+- cinq duels classés maximum par paire non ordonnée sur 24 heures ;
+- règlement idempotent, identique pour les deux clients, affiché avec chaque
+  composante et la classe finale ;
+- panne PostgreSQL sans bilan fictif, puis diffusion du règlement réellement
+  persisté lors de la reprise.
+
 ## Porte Gameplay v2
 
 - Deux clients terminent toutes les variantes de partie.

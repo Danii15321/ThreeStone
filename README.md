@@ -4,12 +4,18 @@
 joueurs. Chaque joueur cherche à être le premier à se débarrasser de ses trois
 cailloux en devinant la somme cachée dans les deux mains.
 
-La **candidate v2 est jouable et vérifiée localement** : elle conserve la
+La **candidate v2 est implémentée et jouable localement** : elle conserve la
 boucle solo et ajoute des salons privés à deux joueurs, un serveur Colyseus
 autoritaire, la reprise de connexion, les délais visibles, la demande de
 rejouer avec acceptation explicite, le score de session et l’historique partagé. Le client React/Vite
 utilise Phaser en Canvas ; l’API Hono et le serveur de jeu s’appuient sur Better
 Auth, PostgreSQL, Drizzle et des contrats Zod stricts.
+
+Au 14 octobre 2026, Vercel, Render et l'accès PostgreSQL Neon ont été rétablis
+sur la révision de production `1f7f9f1`. Les nouveautés Stones locales restent
+une candidate : qualité, intégration PostgreSQL et charge passent, mais l'audit
+des dépendances et un parcours navigateur restent en échec. Les preuves
+actuelles sont détaillées dans [`docs/VALIDATION_V2.md`](./docs/VALIDATION_V2.md).
 
 ## Démarrage local
 
@@ -39,7 +45,8 @@ Commandes principales :
 
 ```bash
 pnpm check                 # format, lint, build, types et tests rapides
-TEST_DATABASE_URL="postgres://three_stone_game:local-development-only@localhost:5432/three_stone_game" pnpm test:integration
+TEST_DATABASE_URL="postgres://three_stone_game:local-development-only@localhost:5432/three_stone_game"
+pnpm test:integration
 pnpm test:e2e              # parcours Chromium, Firefox et WebKit
 pnpm test:multiplayer      # domaine autoritaire et serveur Colyseus
 pnpm test:load:multiplayer # 20 salons et 40 connexions
@@ -219,6 +226,12 @@ contraste sont regroupés dans « Paramètres du jeu ».
 - Enregistrement idempotent du résultat multijoueur dans le profil des deux
   participants.
 - Score de session et demande de rejouer acceptée ou refusée explicitement.
+- Progression en Stones tenant compte du niveau adverse et de la durée du duel,
+  avec classes B, A et S clairement visibles.
+- Récompenses « Main de pierre », « Œil en pierre » et « Cœur de pierre », puis
+  bilan autoritaire détaillé pour les deux joueurs en fin de partie.
+- Protection anti-farming : cinq duels classés maximum par paire sur une
+  fenêtre glissante de 24 heures ; les suivants restent jouables en amical.
 
 Le matchmaking public, le classement compétitif, les amis et les achats ne font
 pas partie du premier incrément multijoueur. Ils nécessiteront une décision

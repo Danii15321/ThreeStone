@@ -11,7 +11,9 @@ finale. Il constitue la référence technique avec :
 - [`pipeline-complete.md`](./pipeline-complete.md) pour l'ordre de réalisation
   et les portes qualité.
 
-La candidate v2 est **implémentée et vérifiée localement**. Le moteur, l’IA, le
+La candidate v2 est **implémentée**. Les preuves actuelles et les contrôles
+encore en échec sont consignés dans [`VALIDATION_V2.md`](./VALIDATION_V2.md).
+Le moteur, l’IA, le
 client solo, le compte par pseudonyme, l’API, PostgreSQL, le protocole privé et
 le serveur Colyseus respectent les frontières décrites ici. Aucun déploiement
 v2 n’est autorisé avant validation explicite. Une décision structurante qui
@@ -723,6 +725,32 @@ normale. La partie, les participants et les manches sont écrits dans une
 transaction idempotente. Seuls les deux participants peuvent lire ce
 récapitulatif. La suppression d'un compte conserve l'intégrité du résultat mais
 remplace son identité par « Joueur supprimé » pour l'autre participant.
+
+### Progression Stones et règlement terminal
+
+Le calcul des Stones appartient à `game-core`. Il reçoit uniquement le
+transcript révélé, le motif terminal, le gagnant, les Stones initiales et le
+nombre de manches. Il produit un règlement déterministe contenant, pour chaque
+siège, le delta de base, les récompenses, le delta net, les valeurs avant/après
+et les classes avant/après.
+
+La transaction PostgreSQL verrouille les deux projections `player_stones` dans
+un ordre stable. Elle décide également si le duel est classé : une clé SHA-256
+non réversible représente la paire non ordonnée, et seuls cinq duels classés
+sur une fenêtre glissante de 24 heures peuvent modifier les Stones. Un duel
+ultérieur est persisté mais reçoit des deltas et récompenses nuls.
+
+Le règlement persisté est la source de vérité. Le game-server ne fabrique
+jamais un bilan optimiste : il diffuse `stonesSettlement: null` tant que
+l’écriture n’a pas abouti, puis publie exactement le règlement créé ou relu de
+façon idempotente. Le snapshot public expose le total et la classe de chaque
+joueur ; le ticket signé les transporte lors de l’admission afin que le client
+ne puisse pas choisir sa valeur affichée.
+
+La migration `0007_workable_titanium_man.sql` est additive. Elle conserve les
+anciens duels comme classés, reprend leur `stones_delta` comme delta de base et
+initialise leurs récompenses à zéro. La règle détaillée et ses exemples sont
+normés dans [`rules/stones-v2.md`](./rules/stones-v2.md).
 
 ## Sécurité
 

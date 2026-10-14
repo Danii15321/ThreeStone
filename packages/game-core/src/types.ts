@@ -1,5 +1,5 @@
 export const PLAYER_IDS = ['player-one', 'player-two'] as const;
-export const RULES_VERSION = '1.0.0' as const;
+export const RULES_VERSION = '1.1.0' as const;
 
 export type PlayerId = (typeof PLAYER_IDS)[number];
 export type GamePhase =

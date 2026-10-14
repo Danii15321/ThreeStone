@@ -1,5 +1,6 @@
 export {
   MAX_CLIENT_MESSAGE_BYTES,
+  LEGACY_PROTOCOL_VERSION,
   PROTOCOL_VERSION,
   clientCommandSchema,
   commandAcceptedSchema,
@@ -24,12 +25,20 @@ export {
   roomResumeTokenSchema,
   roomSnapshotSchema,
   seatObservationSchema,
+  playerStonesSettlementSchema,
+  stoneClassSchema,
+  stonesSettlementRewardSchema,
+  stonesSettlementSchema,
 } from './snapshots.js';
 export type {
+  PlayerStonesSettlement,
   PublicPlayer,
   RoomReaction,
   RoomResumeToken,
   RoomSnapshot,
   SeatObservation,
   SnapshotContext,
+  StonesClass,
+  StonesSettlement,
+  StonesSettlementReward,
 } from './snapshots.js';

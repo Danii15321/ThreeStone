@@ -45,3 +45,21 @@ Les cailloux, la somme, les profils et les pronostics ne sont pas incrustés dan
 les images. Ils restent générés par le moteur de rendu ou par le DOM afin de
 refléter l’état réel de chaque manche et de conserver une alternative
 accessible.
+
+## `reward-stone-hand.webp`, `reward-stone-eye.webp` et `reward-stone-heart.webp`
+
+- Création : emblèmes originaux générés pour ThreeStone avec l’outil de
+  génération d’images OpenAI, à la demande du propriétaire du projet.
+- Direction : artefacts de pierre sculptée et bronze patiné, fantasy nordique
+  stylisée et peinte à la main, respectivement en forme de main, d’œil et de
+  cœur.
+- Transformation : suppression du fond chromatique, redimensionnement à
+  `256×256`, transparence conservée et compression WebP. Chaque emblème pèse
+  moins de 25 Ko.
+- Date : 2026-08-02.
+- Usage : récompenses « Main de pierre », « Œil en pierre » et « Cœur de
+  pierre » dans le bilan multijoueur.
+
+Les libellés et les valeurs de Stones restent du texte DOM : ils ne sont pas
+intégrés aux images, afin de rester accessibles et de toujours refléter le
+résultat autoritaire du serveur.

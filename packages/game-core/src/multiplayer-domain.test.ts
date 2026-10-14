@@ -132,7 +132,7 @@ describe('validated transcript and session score', () => {
 
     expect(buildGameTranscript(terminal.state)).toEqual({
       gameId: 'transcript',
-      rulesVersion: '1.0.0',
+      rulesVersion: '1.1.0',
       seed: 17,
       initialInitiative: 'player-one',
       winner: 'player-two',

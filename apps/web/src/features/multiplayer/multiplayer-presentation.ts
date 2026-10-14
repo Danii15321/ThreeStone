@@ -1,9 +1,28 @@
-import type { Reaction, RoomSnapshot } from '@three-stone/protocol';
+import type { Reaction, RoomSnapshot, StonesClass } from '@three-stone/protocol';
 
 import type { UserPreferences } from '../settings/preferences.js';
 
 type PlayerId = 'player-one' | 'player-two';
 type ConnectionState = 'closed' | 'connected' | 'connecting' | 'disconnected';
+
+export type StonesRewardPresentation = {
+  readonly kind: 'stone-eye' | 'stone-hand' | 'stone-heart';
+  readonly label: string;
+  readonly occurrences: number;
+  readonly stones: number;
+};
+
+export type PlayerStonesSettlementPresentation = {
+  readonly baseDelta: number;
+  readonly classChanged: boolean;
+  readonly netDelta: number;
+  readonly playerId: PlayerId;
+  readonly rewards: readonly StonesRewardPresentation[];
+  readonly stoneClass: StonesClass;
+  readonly stonesAfter: number;
+  readonly stonesBefore: number;
+  readonly username: string;
+};
 
 export type RematchPresentation =
   | { readonly kind: 'declined'; readonly playerName: string }
@@ -120,6 +139,40 @@ export function rematchPresentation(
 
 export function playerInitial(name: string): string {
   return Array.from(name.trim())[0]?.toLocaleUpperCase('fr-FR') ?? 'J';
+}
+
+export function playerStoneClassLabel(stones: number, stoneClass: StonesClass): string {
+  return `Classe ${stoneClass} · ${stones} Stones`;
+}
+
+export function stonesSettlementPresentation(
+  snapshot: RoomSnapshot,
+): readonly PlayerStonesSettlementPresentation[] {
+  const settlement = snapshot.stonesSettlement;
+  if (settlement === null) return [];
+
+  const rewardLabels = {
+    'stone-eye': 'Œil en pierre',
+    'stone-hand': 'Main de pierre',
+    'stone-heart': 'Cœur de pierre',
+  } as const;
+  return (['player-one', 'player-two'] as const).map((playerId) => {
+    const playerSettlement = settlement.players[playerId];
+    return {
+      baseDelta: playerSettlement.baseDelta,
+      classChanged: playerSettlement.classAfter !== playerSettlement.classBefore,
+      netDelta: playerSettlement.netDelta,
+      playerId,
+      rewards: playerSettlement.rewards.map((reward) => ({
+        ...reward,
+        label: rewardLabels[reward.kind],
+      })),
+      stoneClass: playerSettlement.classAfter,
+      stonesAfter: playerSettlement.stonesAfter,
+      stonesBefore: playerSettlement.stonesBefore,
+      username: snapshot.players[playerId].username,
+    };
+  });
 }
 
 export function shouldReduceMotion(preferences: UserPreferences): boolean {

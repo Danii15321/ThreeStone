@@ -15,7 +15,18 @@ export {
   createMultiplayerSession,
   recordSessionGame,
 } from './multiplayer-domain.js';
-export { calculateStonesExchange, INITIAL_STONES, type StonesExchange } from './stones.js';
+export {
+  calculateStonesExchange,
+  calculateStonesRewards,
+  getStonesClass,
+  INITIAL_STONES,
+  type PlayerStonesRewards,
+  type StonesClass,
+  type StonesExchange,
+  type StonesRewardInput,
+  type StonesRewardRound,
+  type StonesSeat,
+} from './stones.js';
 export { getLegalActions, getPrivateObservation, getPublicView } from './projections.js';
 export { PLAYER_IDS, RULES_VERSION } from './types.js';
 export type {

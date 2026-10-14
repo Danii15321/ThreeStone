@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RoomSnapshot, SeatObservation } from '@three-stone/protocol';
+import {
+  LEGACY_PROTOCOL_VERSION,
+  PROTOCOL_VERSION,
+  type RoomSnapshot,
+  type SeatObservation,
+} from '@three-stone/protocol';
 
 import {
   boardPoseForWinner,
@@ -14,11 +19,23 @@ const BASE_SNAPSHOT: RoomSnapshot = {
   initiative: 'player-one',
   phase: 'hidden-choices',
   players: {
-    'player-one': { avatarUrl: null, connected: true, username: 'Astrid' },
-    'player-two': { avatarUrl: null, connected: true, username: 'Bjorn' },
+    'player-one': {
+      avatarUrl: null,
+      connected: true,
+      stoneClass: 'B',
+      stones: 0,
+      username: 'Astrid',
+    },
+    'player-two': {
+      avatarUrl: null,
+      connected: true,
+      stoneClass: 'B',
+      stones: 0,
+      username: 'Bjorn',
+    },
   },
   predictions: {},
-  protocolVersion: 2,
+  protocolVersion: PROTOCOL_VERSION,
   ready: { 'player-one': true, 'player-two': true },
   rematch: {
     accepted: { 'player-one': false, 'player-two': false },
@@ -32,6 +49,7 @@ const BASE_SNAPSHOT: RoomSnapshot = {
   sequence: 4,
   serverNow: 1_775_000_000_000,
   sessionScore: { 'player-one': 0, 'player-two': 0 },
+  stonesSettlement: null,
   terminalReason: null,
   type: 'room.snapshot',
   winner: null,
@@ -39,7 +57,7 @@ const BASE_SNAPSHOT: RoomSnapshot = {
 
 const OBSERVATION: SeatObservation = {
   playerId: 'player-two',
-  protocolVersion: 2,
+  protocolVersion: LEGACY_PROTOCOL_VERSION,
   sequence: 4,
   type: 'seat.observation',
 };

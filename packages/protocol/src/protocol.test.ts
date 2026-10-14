@@ -32,15 +32,20 @@ const context: SnapshotContext = {
     'player-one': {
       avatarUrl: '/api/profile/avatar/player-one',
       connected: true,
+      stoneClass: 'B',
+      stones: 0,
       username: 'Astrid',
     },
     'player-two': {
       avatarUrl: null,
       connected: true,
+      stoneClass: 'B',
+      stones: 0,
       username: 'Bjorn',
     },
   },
   ready: { 'player-one': true, 'player-two': false },
+  stonesSettlement: null,
 };
 
 function choose(state: GameState, playerId: 'player-one' | 'player-two', count: number): GameState {
@@ -121,7 +126,7 @@ describe('client commands', () => {
     const message = {
       connectionGeneration: 2,
       expiresAt: 1_775_000_060_000,
-      protocolVersion: 2,
+      protocolVersion: PROTOCOL_VERSION,
       token: 'opaque-resume-token'.padEnd(43, '0'),
       type: 'room.resume-token',
     };
@@ -134,7 +139,7 @@ describe('client commands', () => {
     const reaction = {
       expiresAt: 4_000,
       playerId: 'player-one',
-      protocolVersion: 2,
+      protocolVersion: PROTOCOL_VERSION,
       reaction: 'nice-bluff',
       sequence: 8,
       type: 'session.reaction',

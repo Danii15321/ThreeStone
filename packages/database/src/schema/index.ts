@@ -207,7 +207,9 @@ export const multiplayerGame = pgTable(
     fingerprint: text('fingerprint').notNull(),
     gameId: uuid('game_id').primaryKey(),
     initialInitiative: text('initial_initiative').notNull(),
+    pairKey: text('pair_key').notNull().default(''),
     protocolVersion: integer('protocol_version').notNull(),
+    rated: boolean('rated').notNull().default(true),
     recordedAt: timestamp('recorded_at', { mode: 'date', withTimezone: true }).notNull(),
     roundsPlayed: integer('rounds_played').notNull(),
     rulesVersion: text('rules_version').notNull(),
@@ -228,6 +230,11 @@ export const multiplayerGame = pgTable(
     ),
     check('multiplayer_game_winner_check', sql`${table.winner} in ('player-one', 'player-two')`),
     index('multiplayer_game_completed_idx').on(table.completedAt),
+    index('multiplayer_game_pair_rated_completed_idx').on(
+      table.pairKey,
+      table.rated,
+      table.completedAt,
+    ),
   ],
 );
 
@@ -239,8 +246,13 @@ export const multiplayerParticipant = pgTable(
       .notNull()
       .references(() => multiplayerGame.gameId, { onDelete: 'cascade' }),
     outcome: text('outcome').notNull(),
+    coeurDePierre: boolean('coeur_de_pierre').notNull().default(false),
+    mainDePierreOccurrences: integer('main_de_pierre_occurrences').notNull().default(0),
+    oeilEnPierre: boolean('oeil_en_pierre').notNull().default(false),
     stonesAfter: integer('stones_after').notNull().default(0),
+    stonesBaseDelta: integer('stones_base_delta').notNull().default(0),
     stonesBefore: integer('stones_before').notNull().default(0),
+    stonesBonus: integer('stones_bonus').notNull().default(0),
     stonesDelta: integer('stones_delta').notNull().default(0),
     seat: text('seat').notNull(),
     userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
@@ -251,6 +263,11 @@ export const multiplayerParticipant = pgTable(
       sql`${table.finalReserve} between 0 and 3`,
     ),
     check('multiplayer_participant_outcome_check', sql`${table.outcome} in ('win', 'loss')`),
+    check(
+      'multiplayer_participant_main_de_pierre_check',
+      sql`${table.mainDePierreOccurrences} between 0 and 4`,
+    ),
+    check('multiplayer_participant_stones_bonus_check', sql`${table.stonesBonus} >= 0`),
     check('multiplayer_participant_seat_check', sql`${table.seat} in ('player-one', 'player-two')`),
     primaryKey({ columns: [table.gameId, table.seat] }),
     index('multiplayer_participant_user_completed_idx').on(table.userId, table.gameId),

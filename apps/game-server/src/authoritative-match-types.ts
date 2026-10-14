@@ -1,4 +1,4 @@
-import type { PlayerId } from '@three-stone/game-core';
+import type { PlayerId, StonesClass } from '@three-stone/game-core';
 
 import type { TerminalResultRepository } from './terminal-result-repository.js';
 import type { GameServerDrainController } from './game-server-drain-controller.js';
@@ -13,6 +13,8 @@ export interface AdmissionIdentity {
   readonly connectionGeneration: number;
   readonly playerId: PlayerId;
   readonly roomId: string;
+  readonly stoneClass?: StonesClass;
+  readonly stones?: number;
   readonly userId: string;
   readonly username: string;
 }

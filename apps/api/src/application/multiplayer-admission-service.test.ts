@@ -98,6 +98,7 @@ function setup() {
     gameServer,
     gameServerUrl: 'ws://127.0.0.1:2567',
     leases,
+    readStones: async () => 519,
     serverInstanceId: 'game-server-local',
     ticketSecret: TICKET_SECRET,
   });
@@ -122,6 +123,8 @@ describe('MultiplayerAdmissionService', () => {
     expect(response.ticket).not.toContain('ABCD23');
     const verifier = new HmacAdmissionTicketVerifier(TICKET_SECRET, () => NOW.getTime());
     await expect(verifier.verify(response.ticket, ROOM_ID)).resolves.toMatchObject({
+      stoneClass: 'S',
+      stones: 519,
       userId: 'user-one',
       username: 'Astrid',
     });

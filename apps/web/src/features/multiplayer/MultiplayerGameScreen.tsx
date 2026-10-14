@@ -20,6 +20,7 @@ import {
   StonePicker,
   WaitingRoom,
 } from './MultiplayerGameParts.js';
+import { MultiplayerStonesSettlement } from './MultiplayerStonesSettlement.js';
 import {
   boardPoseForWinner,
   deriveMultiplayerControls,
@@ -244,6 +245,8 @@ export function MultiplayerGameScreen({
             }
             reserve={snapshot.reserves['player-one']}
             side="left"
+            stoneClass={snapshot.players['player-one'].stoneClass}
+            stones={snapshot.players['player-one'].stones}
             winner={winner === 'player-one'}
           />
           <PlayerCard
@@ -256,6 +259,8 @@ export function MultiplayerGameScreen({
             }
             reserve={snapshot.reserves['player-two']}
             side="right"
+            stoneClass={snapshot.players['player-two'].stoneClass}
+            stones={snapshot.players['player-two'].stones}
             winner={winner === 'player-two'}
           />
         </div>
@@ -333,6 +338,9 @@ export function MultiplayerGameScreen({
               ? 'Aucun résultat ni gagnant ne sera enregistré.'
               : `Le duel s’est joué en ${snapshot.roundNumber} manches.`}
           </p>
+          {snapshot.phase === 'finished' ? (
+            <MultiplayerStonesSettlement snapshot={snapshot} />
+          ) : null}
           {snapshot.phase === 'finished' && rematch.kind === 'incoming' ? (
             <section className={gameStyles.rematchPrompt} aria-labelledby="rematch-request-title">
               <div>

@@ -1,4 +1,5 @@
 import type { TerminalResultRepository } from './terminal-result-repository.js';
+import type { StonesSettlement } from '@three-stone/protocol';
 
 type TerminalResult = Parameters<TerminalResultRepository['save']>[0];
 
@@ -16,6 +17,10 @@ interface RetrierOptions {
 
 export class RetryingTerminalResultRepository implements TerminalResultRepository {
   private readonly entries = new Map<string, PendingResult>();
+  private readonly settlementListeners = new Map<
+    string,
+    Set<(settlement: StonesSettlement) => void>
+  >();
   private readonly onFailure: () => void;
   private readonly schedule: (delayMs: number, task: () => void) => () => void;
   private stopping = false;
@@ -35,6 +40,18 @@ export class RetryingTerminalResultRepository implements TerminalResultRepositor
 
   get pendingCount(): number {
     return this.entries.size;
+  }
+
+  onSettlement(gameId: string, listener: (settlement: StonesSettlement) => void): () => void {
+    const listeners = this.settlementListeners.get(gameId) ?? new Set();
+    listeners.add(listener);
+    this.settlementListeners.set(gameId, listeners);
+    return () => {
+      listeners.delete(listener);
+      if (listeners.size === 0) {
+        this.settlementListeners.delete(gameId);
+      }
+    };
   }
 
   async save(
@@ -87,8 +104,11 @@ export class RetryingTerminalResultRepository implements TerminalResultRepositor
       return;
     }
     try {
-      await this.inner.save(entry.input, entry.recordedAt);
+      const result = await this.inner.save(entry.input, entry.recordedAt);
       this.entries.delete(entry.input.gameId);
+      if (result.kind !== 'contradiction' && result.settlement !== undefined) {
+        this.publishSettlement(entry.input.gameId, result.settlement);
+      }
     } catch {
       this.onFailure();
       entry.attempts += 1;
@@ -98,10 +118,24 @@ export class RetryingTerminalResultRepository implements TerminalResultRepositor
 
   private async flushEntry(entry: PendingResult): Promise<void> {
     try {
-      await this.inner.save(entry.input, entry.recordedAt);
+      const result = await this.inner.save(entry.input, entry.recordedAt);
       this.entries.delete(entry.input.gameId);
+      if (result.kind !== 'contradiction' && result.settlement !== undefined) {
+        this.publishSettlement(entry.input.gameId, result.settlement);
+      }
     } catch {
       this.onFailure();
+    }
+  }
+
+  private publishSettlement(gameId: string, settlement: StonesSettlement): void {
+    const listeners = this.settlementListeners.get(gameId);
+    if (listeners === undefined) {
+      return;
+    }
+    this.settlementListeners.delete(gameId);
+    for (const listener of listeners) {
+      listener(settlement);
     }
   }
 }

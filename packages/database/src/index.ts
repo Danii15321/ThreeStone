@@ -18,5 +18,8 @@ export type {
   RenewMultiplayerLeaseInput,
   SaveMultiplayerGameInput,
   SaveMultiplayerGameOutcome,
+  PlayerStonesSettlement,
+  StonesSettlement,
+  StonesSettlementReward,
 } from './repositories/multiplayer.js';
 export * as schema from './schema/index.js';

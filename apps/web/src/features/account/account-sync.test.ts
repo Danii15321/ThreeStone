@@ -70,7 +70,7 @@ describe('account synchronization mappings', () => {
       gameId: '00000000-0000-4000-8000-000000000001',
       humanFinalReserve: 0,
       roundsPlayed: 7,
-      rulesVersion: '1.0.0',
+      rulesVersion: '1.1.0',
       winner: 'human',
     });
   });

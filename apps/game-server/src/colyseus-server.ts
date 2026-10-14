@@ -8,6 +8,8 @@ import {
   type Server,
 } from '@colyseus/core';
 import { WebSocketTransport } from '@colyseus/ws-transport';
+import { getStonesClass } from '@three-stone/game-core';
+import { LEGACY_PROTOCOL_VERSION, PROTOCOL_VERSION } from '@three-stone/protocol';
 import type { Application, Request, Response } from 'express';
 import { z } from 'zod';
 
@@ -33,16 +35,23 @@ const roomOptionsSchema = z.strictObject({
   seed: z.number().int().safe(),
 });
 
-const admissionIdentitySchema = z.strictObject({
-  avatarUrl: z.string().max(2_048).nullable(),
-  connectionGeneration: z.number().int().positive(),
-  playerId: z.enum(['player-one', 'player-two']),
-  roomId: z.string().min(8).max(128),
-  userId: z.string().min(1).max(128),
-  username: z.string().min(1).max(32),
-});
+const admissionIdentitySchema = z
+  .strictObject({
+    avatarUrl: z.string().max(2_048).nullable(),
+    connectionGeneration: z.number().int().positive(),
+    playerId: z.enum(['player-one', 'player-two']),
+    roomId: z.string().min(8).max(128),
+    stoneClass: z.enum(['B', 'A', 'S']).default('B'),
+    stones: z.number().int().safe().default(0),
+    userId: z.string().min(1).max(128),
+    username: z.string().min(1).max(32),
+  })
+  .refine((identity) => identity.stoneClass === getStonesClass(identity.stones), {
+    message: 'The admitted class must match the signed Stones total.',
+    path: ['stoneClass'],
+  });
 const syncRequestSchema = z.strictObject({
-  protocolVersion: z.literal(2),
+  protocolVersion: z.union([z.literal(LEGACY_PROTOCOL_VERSION), z.literal(PROTOCOL_VERSION)]),
 });
 const resumeTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43,256}$/);
 
@@ -197,6 +206,8 @@ function createThreeStoneRoomClass(dependencies: MatchDependencies) {
         connectionGeneration: identity.connectionGeneration,
         playerId: identity.playerId,
         roomId: identity.roomId,
+        stoneClass: identity.stoneClass,
+        stones: identity.stones,
         userId: identity.userId,
         username: identity.username,
       });

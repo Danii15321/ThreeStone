@@ -613,6 +613,119 @@ describe('AuthoritativeMatch', () => {
     });
   });
 
+  it('publishes the Stones total and class attached to both authenticated profiles', async () => {
+    const rankedIdentities = new Map<string, AdmissionIdentity>([
+      [
+        'ticket-one',
+        {
+          ...identity('user-one', 'player-one'),
+          stoneClass: 'A',
+          stones: 480,
+        } as unknown as AdmissionIdentity,
+      ],
+      [
+        'ticket-two',
+        {
+          ...identity('user-two', 'player-two'),
+          stoneClass: 'B',
+          stones: 80,
+        } as unknown as AdmissionIdentity,
+      ],
+    ]);
+    const { match, one, two } = setup({
+      async verifyAdmissionTicket(ticket) {
+        return rankedIdentities.get(ticket) ?? null;
+      },
+    });
+
+    await joinAndReady(match, one, two);
+
+    expect(one.last<RoomSnapshot>('room.snapshot')).toMatchObject({
+      players: {
+        'player-one': { stoneClass: 'A', stones: 480 },
+        'player-two': { stoneClass: 'B', stones: 80 },
+      },
+      stonesSettlement: null,
+    });
+  });
+
+  it('broadcasts the same authoritative terminal Stones settlement to both players', async () => {
+    const settlement = {
+      players: {
+        'player-one': {
+          baseDelta: 12,
+          classAfter: 'S',
+          classBefore: 'A',
+          netDelta: 39,
+          rewards: [
+            { kind: 'stone-hand', occurrences: 4, stones: 12 },
+            { kind: 'stone-eye', occurrences: 1, stones: 9 },
+            { kind: 'stone-heart', occurrences: 1, stones: 6 },
+          ],
+          stonesAfter: 519,
+          stonesBefore: 480,
+        },
+        'player-two': {
+          baseDelta: -12,
+          classAfter: 'B',
+          classBefore: 'B',
+          netDelta: -6,
+          rewards: [{ kind: 'stone-heart', occurrences: 1, stones: 6 }],
+          stonesAfter: 74,
+          stonesBefore: 80,
+        },
+      },
+      rated: true,
+    } as const;
+    const rankedIdentities = new Map<string, AdmissionIdentity>([
+      [
+        'ticket-one',
+        {
+          ...identity('user-one', 'player-one'),
+          stoneClass: 'A',
+          stones: 480,
+        } as unknown as AdmissionIdentity,
+      ],
+      [
+        'ticket-two',
+        {
+          ...identity('user-two', 'player-two'),
+          stoneClass: 'B',
+          stones: 80,
+        } as unknown as AdmissionIdentity,
+      ],
+    ]);
+    const { match, one, two } = setup({
+      resultRepository: {
+        async save(input) {
+          return {
+            gameId: input.gameId,
+            kind: 'created',
+            settlement,
+          } as never;
+        },
+      },
+      async verifyAdmissionTicket(ticket) {
+        return rankedIdentities.get(ticket) ?? null;
+      },
+    });
+    await joinAndReady(match, one, two);
+
+    await finishGame(match, one, two);
+
+    const expected = {
+      phase: 'finished',
+      players: {
+        'player-one': { stoneClass: 'S', stones: 519 },
+        'player-two': { stoneClass: 'B', stones: 74 },
+      },
+      stonesSettlement: settlement,
+      winner: 'player-one',
+    };
+    expect(one.last<RoomSnapshot>('room.snapshot')).toMatchObject(expected);
+    expect(two.last<RoomSnapshot>('room.snapshot')).toMatchObject(expected);
+  });
+
   it('acknowledges and broadcasts a terminal command even when persistence is unavailable', async () => {
     const metrics = new GameServerMetrics();
     const { match, one, two } = setup({

@@ -6,6 +6,7 @@ import type {
   SoloResultHistory,
   SoloStats,
 } from '@three-stone/api-contracts';
+import { getStonesClass } from '@three-stone/game-core';
 import { useEffect, useState, type FormEvent } from 'react';
 
 import {
@@ -673,11 +674,17 @@ function StatCard({
 }
 
 function StonesCard({ value }: { readonly value: number | undefined }) {
+  const stoneClass = value === undefined ? null : getStonesClass(value);
   return (
     <div className={styles.stonesStat}>
       <img src={stonesEmblem} alt="" aria-hidden="true" />
       <dt>Stones</dt>
       <dd>{value ?? '—'}</dd>
+      {stoneClass === null ? null : (
+        <strong className={styles.accountStoneClass} data-stone-class={stoneClass}>
+          Classe {stoneClass}
+        </strong>
+      )}
       <small>Votre valeur officielle en duel</small>
     </div>
   );

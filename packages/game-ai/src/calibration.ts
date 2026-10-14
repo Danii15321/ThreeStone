@@ -1,8 +1,9 @@
-import type {
-  GameAction,
-  PlayerId,
-  PrivateObservation,
-  PublicRoundResult,
+import {
+  RULES_VERSION,
+  type GameAction,
+  type PlayerId,
+  type PrivateObservation,
+  type PublicRoundResult,
 } from '@three-stone/game-core';
 
 import { createSeededRandom } from './seeded-random.js';
@@ -79,7 +80,7 @@ function createCalibrationObservation(): PrivateObservation {
   }));
   return {
     playerId,
-    rulesVersion: '1.0.0',
+    rulesVersion: RULES_VERSION,
     phase: 'first-prediction',
     roundNumber: 13,
     initiative: playerId,

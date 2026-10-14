@@ -37,7 +37,7 @@ Une release ne commence que si :
 4. l’audit ne contient aucune vulnérabilité élevée ou critique non acceptée ;
 5. une sauvegarde ou un point de restauration Neon existe ;
 6. les secrets staging et production sont distincts ;
-7. le client, l’API et le game-server utilisent le protocole `2.0` ;
+7. le client, l’API et le game-server utilisent le protocole public `3` ;
 8. la version précédente et sa procédure de retour arrière sont disponibles.
 
 `pnpm validate:v2` exécute qualité, build, tests, audit de dépendances, tests
@@ -94,12 +94,14 @@ n’utilise pas HTTPS en production ou si une valeur est hors limites.
 
 ## Migration de la base
 
-Le schéma v2 est livré par trois migrations ordonnées :
+Le schéma v2 est livré par quatre migrations ordonnées :
 
 - `0004_strange_morgan_stark.sql` ajoute les baux et tables multijoueurs ;
 - `0005_daffy_stryfe.sql` ajoute la progression compétitive initiale ;
 - `0006_secret_diamondback.sql` la renomme en **Stones** et fixe son origine à
-  zéro.
+  zéro ;
+- `0007_workable_titanium_man.sql` ajoute le règlement détaillé, les
+  récompenses et l’index de limitation par paire sur 24 h.
 
 Elles conservent les tables et données v1.
 
@@ -119,7 +121,7 @@ Vercel ou du game-server.
 ### Compatibilité de retour arrière
 
 La migration `0004` est additive et une version v1 ignore ses tables. Les
-migrations `0005` et `0006` font évoluer uniquement le modèle v2 ; après leur
+migrations `0005` à `0007` font évoluer uniquement le modèle v2 ; après leur
 application, le rollback doit donc cibler un commit qui connaît le champ
 `stones`, pas une révision intermédiaire qui attend encore `renown`. Aucune
 suppression de tables ne fait partie d’un rollback d’urgence.
@@ -252,9 +254,9 @@ peut être plus courte que dix minutes.
 
 1. fermer les admissions de la version fautive ;
 2. attendre ou annuler les salles selon la procédure de drainage ;
-3. conserver les migrations `0004` à `0006` et choisir un commit compatible
-   avec le champ `stones` ;
-4. redéployer le dernier commit compatible avec le protocole `2.0` ;
+3. conserver les migrations `0004` à `0007` et choisir un commit qui ignore
+   sans erreur les nouvelles colonnes de règlement ;
+4. redéployer le dernier commit compatible avec le protocole public `3` ;
 5. rétablir ensemble les URLs publiques et internes ;
 6. exécuter les quatre contrôles de santé ;
 7. jouer une partie courte avec deux comptes ;

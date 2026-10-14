@@ -76,7 +76,7 @@ describe('game creation and initiative', () => {
         type: 'game-created',
         gameId: 'game-001',
         initiative: 'player-one',
-        rulesVersion: '1.0.0',
+        rulesVersion: '1.1.0',
         seed: 42,
       },
     ]);

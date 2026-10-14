@@ -1,5 +1,45 @@
 # Dossier de validation v2
 
+## État actuel au 14 octobre 2026
+
+La révision de production associée au commit `1f7f9f1` a été réactivée sur
+Vercel et Render. Le site, les routes de santé API et game-server répondent en
+HTTP 200 ; la readiness API confirme `database: ok` pour PostgreSQL Neon.
+Aucune nouveauté locale ni migration distante n'a été publiée lors de cette
+reprise.
+
+Le propriétaire a ensuite autorisé le commit et le push de la candidate
+Stones sur `feat/v2-multiplayer`. Elle ajoute les classes B/A/S, les récompenses
+Main/Œil/Cœur, le règlement autoritaire, la limite de cinq duels classés par
+paire sur 24 h, le protocole `3` et la migration additive `0007`.
+La version des règles portée par le code est `1.1.0`.
+
+Contrôles exécutés sur cette candidate durant la même session :
+
+| Contrôle | Résultat |
+| --- | --- |
+| `pnpm check` | Vert : format, lint, builds, types et tests rapides |
+| Migrations sur PostgreSQL 17 isolé + `pnpm test:integration` | Vert : 64 tests API et 6 tests database |
+| `pnpm test:load:multiplayer` | Vert : 20 salons / 40 connexions, p95 sous 500 ms |
+| `pnpm audit:security` | Rouge : 16 avis, dont 1 critique et 2 élevés ; exploitabilité à qualifier |
+| `pnpm test:e2e` | Rouge : 12 réussis, 1 échec, 2 ignorés ; contrôle de débordement multijoueur à 390 px et texte 200 % |
+
+Cette publication Git ne constitue pas une release. Le commit comporte
+`[skip render]` pour conserver le serveur de production existant ; Vercel
+utilise `main` comme branche de production. La migration Neon `0007`, la
+qualification staging et le déploiement compatible restent à réaliser après
+résolution des portes rouges.
+
+La revue a également relevé des défauts à traiter : erreur d'enregistrement
+solo ignorée, abandon sans confirmation, connexion initiale terminant après
+fermeture du client, quota réseau mutualisé dans l'adaptateur Vercel et salons
+Colyseus conservés après leur fermeture métier. Les scénarios navigateur de
+coupure réseau et de reprise sans API ne sont pas encore couverts.
+
+Les sections suivantes conservent les preuves historiques de juillet 2026.
+Leurs nombres de tests, versions et affirmations « non poussé » ou « non
+déployé » ne décrivent pas l'état actuel et ne certifient pas cette candidate.
+
 ## Décision attendue
 
 Ce document présente la candidate locale du multijoueur privé. Il permet au

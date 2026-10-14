@@ -1,6 +1,12 @@
 import { createHash } from 'node:crypto';
 
-import { calculateStonesExchange, INITIAL_STONES } from '@three-stone/game-core';
+import {
+  calculateStonesExchange,
+  calculateStonesRewards,
+  getStonesClass,
+  INITIAL_STONES,
+  type StonesClass,
+} from '@three-stone/game-core';
 import { and, asc, eq, gt, inArray, lte, sql } from 'drizzle-orm';
 
 import type { Database } from '../client/create-database.js';
@@ -162,7 +168,32 @@ export interface SaveMultiplayerGameInput {
 
 export type SaveMultiplayerGameOutcome =
   | { readonly kind: 'contradiction' }
-  | { readonly kind: 'created' | 'existing'; readonly gameId: string };
+  | {
+      readonly kind: 'created' | 'existing';
+      readonly gameId: string;
+      readonly settlement: StonesSettlement;
+    };
+
+export interface StonesSettlementReward {
+  readonly kind: 'stone-eye' | 'stone-hand' | 'stone-heart';
+  readonly occurrences: number;
+  readonly stones: number;
+}
+
+export interface PlayerStonesSettlement {
+  readonly baseDelta: number;
+  readonly classAfter: StonesClass;
+  readonly classBefore: StonesClass;
+  readonly netDelta: number;
+  readonly rewards: readonly StonesSettlementReward[];
+  readonly stonesAfter: number;
+  readonly stonesBefore: number;
+}
+
+export interface StonesSettlement {
+  readonly players: Readonly<Record<MultiplayerSeat, PlayerStonesSettlement>>;
+  readonly rated: boolean;
+}
 
 export class DrizzleMultiplayerResultRepository {
   constructor(private readonly database: Database) {}
@@ -172,6 +203,7 @@ export class DrizzleMultiplayerResultRepository {
     recordedAt: Date,
   ): Promise<SaveMultiplayerGameOutcome> {
     const fingerprint = resultFingerprint(input);
+    const pairKey = multiplayerPairKey(input.participants);
     return this.database.transaction(async (transaction) => {
       const [inserted] = await transaction
         .insert(multiplayerGame)
@@ -180,7 +212,9 @@ export class DrizzleMultiplayerResultRepository {
           fingerprint,
           gameId: input.gameId,
           initialInitiative: input.initialInitiative,
+          pairKey,
           protocolVersion: input.protocolVersion,
+          rated: false,
           recordedAt,
           roundsPlayed: input.rounds.length,
           rulesVersion: input.rulesVersion,
@@ -220,21 +254,58 @@ export class DrizzleMultiplayerResultRepository {
         }
         const winnerBefore = stonesFor(lockedStones, winner.userId);
         const loserBefore = stonesFor(lockedStones, loser.userId);
+        const [recentPairCount] = await transaction
+          .select({ value: sql<number>`count(*)::int` })
+          .from(multiplayerGame)
+          .where(
+            and(
+              eq(multiplayerGame.pairKey, pairKey),
+              eq(multiplayerGame.rated, true),
+              gt(
+                multiplayerGame.completedAt,
+                new Date(input.completedAt.getTime() - 24 * 60 * 60_000),
+              ),
+              lte(multiplayerGame.completedAt, input.completedAt),
+            ),
+          );
+        const rated = (recentPairCount?.value ?? 0) < 5;
         const exchange = calculateStonesExchange({
           loserStones: loserBefore,
           roundsPlayed: Math.max(1, input.rounds.length),
           winnerStones: winnerBefore,
         });
+        const rewards = calculateStonesRewards({
+          rounds: input.rounds,
+          terminalReason: input.terminalReason,
+          winner: input.winner,
+        });
         const ratingByUserId = new Map([
           [
             winner.userId,
-            { after: exchange.winnerAfter, before: winnerBefore, delta: exchange.delta },
+            {
+              baseDelta: rated ? exchange.delta : 0,
+              before: winnerBefore,
+              rewards: rewards[winner.seat],
+              seat: winner.seat,
+            },
           ],
           [
             loser.userId,
-            { after: exchange.loserAfter, before: loserBefore, delta: -exchange.delta },
+            {
+              baseDelta: rated ? -exchange.delta : 0,
+              before: loserBefore,
+              rewards: rewards[loser.seat],
+              seat: loser.seat,
+            },
           ],
         ]);
+
+        if (rated) {
+          await transaction
+            .update(multiplayerGame)
+            .set({ rated: true })
+            .where(eq(multiplayerGame.gameId, input.gameId));
+        }
 
         await transaction.insert(multiplayerParticipant).values(
           input.participants.map((participant) => {
@@ -242,24 +313,34 @@ export class DrizzleMultiplayerResultRepository {
             if (rating === undefined) {
               throw new Error('Missing participant Stones exchange.');
             }
+            const bonus = rated ? rating.rewards.total : 0;
+            const delta = rating.baseDelta + bonus;
+            const after = rating.before + delta;
             return {
+              coeurDePierre: rated && rating.rewards.coeurDePierre,
               finalReserve: participant.finalReserve,
               gameId: input.gameId,
+              mainDePierreOccurrences: rated ? rating.rewards.mainDePierreOccurrences : 0,
+              oeilEnPierre: rated && rating.rewards.oeilEnPierre,
               outcome: participant.outcome,
-              stonesAfter: rating.after,
+              stonesAfter: after,
+              stonesBaseDelta: rating.baseDelta,
               stonesBefore: rating.before,
-              stonesDelta: rating.delta,
+              stonesBonus: bonus,
+              stonesDelta: delta,
               seat: participant.seat,
               userId: participant.userId,
             };
           }),
         );
         for (const [userId, rating] of ratingByUserId) {
+          if (!rated) continue;
+          const after = rating.before + rating.baseDelta + rating.rewards.total;
           await transaction
             .update(playerStones)
             .set({
               ratedGames: sql`${playerStones.ratedGames} + 1`,
-              stones: rating.after,
+              stones: after,
               updatedAt: recordedAt,
             })
             .where(eq(playerStones.userId, userId));
@@ -281,7 +362,11 @@ export class DrizzleMultiplayerResultRepository {
             })),
           );
         }
-        return { kind: 'created', gameId: input.gameId };
+        return {
+          kind: 'created',
+          gameId: input.gameId,
+          settlement: settlementFromRatings(rated, input.participants, ratingByUserId),
+        };
       }
 
       const [existing] = await transaction
@@ -294,9 +379,128 @@ export class DrizzleMultiplayerResultRepository {
       if (existing?.fingerprint !== fingerprint) {
         return { kind: 'contradiction' };
       }
-      return { kind: 'existing', gameId: input.gameId };
+      return {
+        kind: 'existing',
+        gameId: input.gameId,
+        settlement: await readSettlement(transaction, input.gameId),
+      };
     });
   }
+}
+
+type CalculatedRating = {
+  readonly baseDelta: number;
+  readonly before: number;
+  readonly rewards: ReturnType<typeof calculateStonesRewards>[MultiplayerSeat];
+  readonly seat: MultiplayerSeat;
+};
+
+function multiplayerPairKey(
+  participants: readonly [MultiplayerParticipantInput, MultiplayerParticipantInput],
+): string {
+  return createHash('sha256')
+    .update(JSON.stringify(participants.map(({ userId }) => userId).sort()))
+    .digest('hex');
+}
+
+function rewardDetails(rating: CalculatedRating, rated: boolean): StonesSettlementReward[] {
+  if (!rated) return [];
+  const rewards: StonesSettlementReward[] = [];
+  if (rating.rewards.mainDePierreOccurrences > 0) {
+    rewards.push({
+      kind: 'stone-hand',
+      occurrences: rating.rewards.mainDePierreOccurrences,
+      stones: rating.rewards.mainDePierreStones,
+    });
+  }
+  if (rating.rewards.oeilEnPierre) {
+    rewards.push({ kind: 'stone-eye', occurrences: 1, stones: rating.rewards.oeilEnPierreStones });
+  }
+  if (rating.rewards.coeurDePierre) {
+    rewards.push({
+      kind: 'stone-heart',
+      occurrences: 1,
+      stones: rating.rewards.coeurDePierreStones,
+    });
+  }
+  return rewards;
+}
+
+function settlementFromRatings(
+  rated: boolean,
+  participants: readonly [MultiplayerParticipantInput, MultiplayerParticipantInput],
+  ratings: ReadonlyMap<string, CalculatedRating>,
+): StonesSettlement {
+  const bySeat = (seat: MultiplayerSeat): PlayerStonesSettlement => {
+    const participant = participants.find((candidate) => candidate.seat === seat);
+    const rating = participant === undefined ? undefined : ratings.get(participant.userId);
+    if (rating === undefined) throw new Error('Missing participant Stones settlement.');
+    const bonus = rated ? rating.rewards.total : 0;
+    const netDelta = rating.baseDelta + bonus;
+    const stonesAfter = rating.before + netDelta;
+    return {
+      baseDelta: rating.baseDelta,
+      classAfter: getStonesClass(stonesAfter),
+      classBefore: getStonesClass(rating.before),
+      netDelta,
+      rewards: rewardDetails(rating, rated),
+      stonesAfter,
+      stonesBefore: rating.before,
+    };
+  };
+  return {
+    players: { 'player-one': bySeat('player-one'), 'player-two': bySeat('player-two') },
+    rated,
+  };
+}
+
+async function readSettlement(
+  transaction: Parameters<Parameters<Database['transaction']>[0]>[0],
+  gameId: string,
+): Promise<StonesSettlement> {
+  const [game] = await transaction
+    .select({ rated: multiplayerGame.rated })
+    .from(multiplayerGame)
+    .where(eq(multiplayerGame.gameId, gameId))
+    .limit(1);
+  const participants = await transaction
+    .select()
+    .from(multiplayerParticipant)
+    .where(eq(multiplayerParticipant.gameId, gameId));
+  if (game === undefined || participants.length !== 2) {
+    throw new Error('Missing persisted Stones settlement.');
+  }
+  const bySeat = (seat: MultiplayerSeat): PlayerStonesSettlement => {
+    const participant = participants.find((candidate) => candidate.seat === seat);
+    if (participant === undefined) throw new Error('Missing persisted participant settlement.');
+    const rewards: StonesSettlementReward[] = [];
+    if (participant.mainDePierreOccurrences > 0) {
+      rewards.push({
+        kind: 'stone-hand',
+        occurrences: participant.mainDePierreOccurrences,
+        stones: participant.mainDePierreOccurrences * 3,
+      });
+    }
+    if (participant.oeilEnPierre) {
+      rewards.push({ kind: 'stone-eye', occurrences: 1, stones: 9 });
+    }
+    if (participant.coeurDePierre) {
+      rewards.push({ kind: 'stone-heart', occurrences: 1, stones: 6 });
+    }
+    return {
+      baseDelta: participant.stonesBaseDelta,
+      classAfter: getStonesClass(participant.stonesAfter),
+      classBefore: getStonesClass(participant.stonesBefore),
+      netDelta: participant.stonesDelta,
+      rewards,
+      stonesAfter: participant.stonesAfter,
+      stonesBefore: participant.stonesBefore,
+    };
+  };
+  return {
+    players: { 'player-one': bySeat('player-one'), 'player-two': bySeat('player-two') },
+    rated: game.rated,
+  };
 }
 
 function stonesFor(

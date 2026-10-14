@@ -23,12 +23,14 @@ import {
   roomReactionSchema,
   createSeatObservation,
   parseClientCommand,
+  stonesSettlementSchema,
   type ClientCommand,
   type CommandAccepted,
   type CommandErrorCode,
   type CommandRejected,
   type PublicPlayer,
   type Reaction,
+  type StonesSettlement,
 } from '@three-stone/protocol';
 
 import {
@@ -66,7 +68,7 @@ export type {
 
 interface SeatState {
   connection: MatchConnection | null;
-  readonly identity: AdmissionIdentity;
+  identity: AdmissionIdentity;
   resumeToken: ResumeTokenRecord | null;
 }
 
@@ -105,6 +107,7 @@ export class AuthoritativeMatch {
   private readonly roomSession: MultiplayerRoomSession;
   private roomClosed = false;
   private terminalPersistence: Promise<void> | null = null;
+  private stonesSettlement: StonesSettlement | null = null;
 
   constructor(
     private readonly options: MatchOptions,
@@ -512,6 +515,7 @@ export class AuthoritativeMatch {
       sequence: this.currentSequence,
       serverNow: this.dependencies.clock.now(),
       sessionScore: this.roomSession.score,
+      stonesSettlement: this.stonesSettlement,
     });
   }
 
@@ -731,6 +735,7 @@ export class AuthoritativeMatch {
     }).state;
     this.roomSession.beginRematch();
     this.terminalPersistence = null;
+    this.stonesSettlement = null;
     this.actionDeadlineIdentity = null;
     this.actionDeadlines.clear();
     this.disconnectUsedMs.clear();
@@ -809,6 +814,12 @@ export class AuthoritativeMatch {
       throw new Error('A terminal multiplayer result requires both authenticated participants.');
     }
     const completedAt = new Date(this.dependencies.clock.now());
+    const stopListening = this.dependencies.resultRepository.onSettlement?.(
+      transcript.gameId,
+      (settlement) => {
+        this.applyStonesSettlement(transcript.gameId, settlement, true);
+      },
+    );
     const result = await this.dependencies.resultRepository.save(
       {
         completedAt,
@@ -828,7 +839,39 @@ export class AuthoritativeMatch {
       completedAt,
     );
     if (result.kind === 'contradiction') {
+      stopListening?.();
       throw new Error('The terminal multiplayer result contradicts its persisted game id.');
+    }
+    if (result.settlement !== undefined) {
+      stopListening?.();
+      this.applyStonesSettlement(transcript.gameId, result.settlement, false);
+    }
+  }
+
+  private applyStonesSettlement(
+    gameId: string,
+    settlement: StonesSettlement,
+    broadcast: boolean,
+  ): void {
+    const validatedSettlement = stonesSettlementSchema.parse(settlement);
+    for (const playerId of ['player-one', 'player-two'] as const) {
+      const seat = this.seats.get(playerId);
+      if (seat === undefined) {
+        continue;
+      }
+      const playerSettlement = validatedSettlement.players[playerId];
+      seat.identity = {
+        ...seat.identity,
+        stoneClass: playerSettlement.classAfter,
+        stones: playerSettlement.stonesAfter,
+      };
+    }
+    if (this.currentState.gameId === gameId && this.currentState.phase === 'finished') {
+      this.stonesSettlement = validatedSettlement;
+    }
+    if (broadcast && !this.roomClosed) {
+      this.currentSequence += 1;
+      this.broadcastState();
     }
   }
 }

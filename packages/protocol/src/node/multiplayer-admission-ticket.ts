@@ -1,28 +1,37 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 import { z } from 'zod';
+import { getStonesClass } from '@three-stone/game-core';
 
 import { PROTOCOL_VERSION } from '../commands.js';
+import { stoneClassSchema, type StonesClass } from '../snapshots.js';
 
 const MAX_TICKET_LIFETIME_MS = 45_000;
 const MAX_CLOCK_SKEW_MS = 5_000;
 const MIN_SECRET_BYTES = 32;
 export const MAX_ADMISSION_TICKET_BYTES = 2_048;
 
-const admissionTicketPayloadSchema = z.strictObject({
-  action: z.literal('join-room'),
-  avatarUrl: z.string().max(2_048).nullable(),
-  connectionGeneration: z.number().int().positive(),
-  expiresAt: z.number().int().positive(),
-  issuedAt: z.number().int().positive(),
-  jti: z.string().min(8).max(128),
-  playerId: z.enum(['player-one', 'player-two']),
-  protocolVersion: z.literal(PROTOCOL_VERSION),
-  purpose: z.literal('multiplayer-admission'),
-  roomId: z.string().min(8).max(128),
-  userId: z.string().min(1).max(128),
-  username: z.string().min(1).max(32),
-});
+const admissionTicketPayloadSchema = z
+  .strictObject({
+    action: z.literal('join-room'),
+    avatarUrl: z.string().max(2_048).nullable(),
+    connectionGeneration: z.number().int().positive(),
+    expiresAt: z.number().int().positive(),
+    issuedAt: z.number().int().positive(),
+    jti: z.string().min(8).max(128),
+    playerId: z.enum(['player-one', 'player-two']),
+    protocolVersion: z.literal(PROTOCOL_VERSION),
+    purpose: z.literal('multiplayer-admission'),
+    roomId: z.string().min(8).max(128),
+    stoneClass: stoneClassSchema,
+    stones: z.number().int().safe(),
+    userId: z.string().min(1).max(128),
+    username: z.string().min(1).max(32),
+  })
+  .refine((payload) => payload.stoneClass === getStonesClass(payload.stones), {
+    message: 'The admission class must match the signed Stones total.',
+    path: ['stoneClass'],
+  });
 
 export interface AdmissionTicketClaims {
   readonly avatarUrl: string | null;
@@ -32,6 +41,8 @@ export interface AdmissionTicketClaims {
   readonly jti: string;
   readonly playerId: 'player-one' | 'player-two';
   readonly roomId: string;
+  readonly stoneClass: StonesClass;
+  readonly stones: number;
   readonly userId: string;
   readonly username: string;
 }
@@ -40,13 +51,21 @@ export interface AdmissionTicketVerifier {
   verify(ticket: string, expectedRoomId: string): Promise<AdmissionTicketClaims | null>;
 }
 
-export function issueAdmissionTicket(claims: AdmissionTicketClaims, secret: string): string {
+type AdmissionTicketInput = Omit<AdmissionTicketClaims, 'stoneClass' | 'stones'> & {
+  readonly stoneClass?: StonesClass;
+  readonly stones?: number;
+};
+
+export function issueAdmissionTicket(claims: AdmissionTicketInput, secret: string): string {
   assertSecret(secret);
+  const stones = claims.stones ?? 0;
   const payload = admissionTicketPayloadSchema.parse({
     ...claims,
     action: 'join-room',
     protocolVersion: PROTOCOL_VERSION,
     purpose: 'multiplayer-admission',
+    stoneClass: claims.stoneClass ?? getStonesClass(stones),
+    stones,
   });
   if (
     payload.expiresAt <= payload.issuedAt ||
@@ -110,6 +129,8 @@ export class HmacAdmissionTicketVerifier implements AdmissionTicketVerifier {
         jti: payload.jti,
         playerId: payload.playerId,
         roomId: payload.roomId,
+        stoneClass: payload.stoneClass,
+        stones: payload.stones,
         userId: payload.userId,
         username: payload.username,
       };

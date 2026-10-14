@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -15,6 +15,16 @@ const integration = describe.skipIf(database === null);
 
 const NOW = new Date('2026-07-30T12:00:00.000Z');
 const GAME_ID = '7fdd4c75-bce5-4bf2-999d-90c92ee9d146';
+const BONUS_GAME_ID = '7fdd4c75-bce5-4bf2-999d-90c92ee9d147';
+const PAIR_GAME_IDS = [
+  '7fdd4c75-bce5-4bf2-999d-90c92ee9d151',
+  '7fdd4c75-bce5-4bf2-999d-90c92ee9d152',
+  '7fdd4c75-bce5-4bf2-999d-90c92ee9d153',
+  '7fdd4c75-bce5-4bf2-999d-90c92ee9d154',
+  '7fdd4c75-bce5-4bf2-999d-90c92ee9d155',
+  '7fdd4c75-bce5-4bf2-999d-90c92ee9d156',
+  '7fdd4c75-bce5-4bf2-999d-90c92ee9d157',
+] as const;
 const ROOM_ONE = 'd44ae2bf-b633-4ed4-9cc1-e0f6d44c8373';
 const ROOM_TWO = 'aed41a89-bcbd-466f-972a-0207443fd3e9';
 
@@ -54,6 +64,77 @@ const RESULT: SaveMultiplayerGameInput = {
   winner: 'player-one',
 };
 
+function resultAt(input: {
+  readonly completedAt: Date;
+  readonly gameId: string;
+  readonly swapUsers?: boolean;
+}): SaveMultiplayerGameInput {
+  const firstUserId = input.swapUsers === true ? 'multiplayer-user-b' : 'multiplayer-user-a';
+  const secondUserId = input.swapUsers === true ? 'multiplayer-user-a' : 'multiplayer-user-b';
+  return {
+    ...RESULT,
+    completedAt: input.completedAt,
+    gameId: input.gameId,
+    participants: [
+      { ...RESULT.participants[0], userId: firstUserId },
+      { ...RESULT.participants[1], userId: secondUserId },
+    ],
+  };
+}
+
+const BONUS_RESULT: SaveMultiplayerGameInput = {
+  ...RESULT,
+  completedAt: new Date('2026-07-30T11:58:00.000Z'),
+  gameId: BONUS_GAME_ID,
+  rounds: [
+    {
+      choices: { 'player-one': 1, 'player-two': 0 },
+      initiative: 'player-one',
+      predictions: { 'player-one': 2, 'player-two': 1 },
+      reservesAfter: { 'player-one': 3, 'player-two': 2 },
+      roundNumber: 1,
+      total: 1,
+      winner: 'player-two',
+    },
+    {
+      choices: { 'player-one': 1, 'player-two': 0 },
+      initiative: 'player-two',
+      predictions: { 'player-one': 2, 'player-two': 1 },
+      reservesAfter: { 'player-one': 3, 'player-two': 1 },
+      roundNumber: 2,
+      total: 1,
+      winner: 'player-two',
+    },
+    {
+      choices: { 'player-one': 1, 'player-two': 1 },
+      initiative: 'player-one',
+      predictions: { 'player-one': 2, 'player-two': 3 },
+      reservesAfter: { 'player-one': 2, 'player-two': 1 },
+      roundNumber: 3,
+      total: 2,
+      winner: 'player-one',
+    },
+    {
+      choices: { 'player-one': 1, 'player-two': 1 },
+      initiative: 'player-two',
+      predictions: { 'player-one': 2, 'player-two': 3 },
+      reservesAfter: { 'player-one': 1, 'player-two': 1 },
+      roundNumber: 4,
+      total: 2,
+      winner: 'player-one',
+    },
+    {
+      choices: { 'player-one': 1, 'player-two': 1 },
+      initiative: 'player-one',
+      predictions: { 'player-one': 2, 'player-two': 3 },
+      reservesAfter: { 'player-one': 0, 'player-two': 1 },
+      roundNumber: 5,
+      total: 2,
+      winner: 'player-one',
+    },
+  ],
+};
+
 integration('multiplayer PostgreSQL repositories', () => {
   beforeEach(async () => {
     if (database === null) return;
@@ -62,7 +143,7 @@ integration('multiplayer PostgreSQL repositories', () => {
       .where(eq(schema.activeMultiplayerLease.userId, 'multiplayer-user-a'));
     await database.db
       .delete(schema.multiplayerGame)
-      .where(eq(schema.multiplayerGame.gameId, GAME_ID));
+      .where(inArray(schema.multiplayerGame.gameId, [GAME_ID, BONUS_GAME_ID, ...PAIR_GAME_IDS]));
     await database.db
       .delete(schema.playerStones)
       .where(eq(schema.playerStones.userId, 'multiplayer-user-a'));
@@ -95,7 +176,7 @@ integration('multiplayer PostgreSQL repositories', () => {
     if (database === null) return;
     await database.db
       .delete(schema.multiplayerGame)
-      .where(eq(schema.multiplayerGame.gameId, GAME_ID));
+      .where(inArray(schema.multiplayerGame.gameId, [GAME_ID, BONUS_GAME_ID, ...PAIR_GAME_IDS]));
     await database.db.delete(schema.user).where(eq(schema.user.id, 'multiplayer-user-a'));
     await database.db.delete(schema.user).where(eq(schema.user.id, 'multiplayer-user-b'));
     await database.close();
@@ -228,6 +309,143 @@ integration('multiplayer PostgreSQL repositories', () => {
         }),
       ]),
     );
+  });
+
+  it('persists the authoritative reward breakdown and can leave the loser net positive', async () => {
+    if (database === null) return;
+    const results = new DrizzleMultiplayerResultRepository(database.db);
+    await database.db.insert(schema.playerStones).values([
+      {
+        ratedGames: 0,
+        stones: 500,
+        updatedAt: NOW,
+        userId: 'multiplayer-user-a',
+      },
+      {
+        ratedGames: 0,
+        stones: -500,
+        updatedAt: NOW,
+        userId: 'multiplayer-user-b',
+      },
+    ]);
+
+    await expect(results.save(BONUS_RESULT, NOW)).resolves.toMatchObject({ kind: 'created' });
+
+    await expect(
+      database.db
+        .select({ rated: schema.multiplayerGame.rated })
+        .from(schema.multiplayerGame)
+        .where(eq(schema.multiplayerGame.gameId, BONUS_GAME_ID)),
+    ).resolves.toEqual([{ rated: true }]);
+
+    const participants = await database.db
+      .select()
+      .from(schema.multiplayerParticipant)
+      .where(eq(schema.multiplayerParticipant.gameId, BONUS_GAME_ID));
+    expect(participants).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          coeurDePierre: true,
+          mainDePierreOccurrences: 0,
+          oeilEnPierre: true,
+          seat: 'player-one',
+          stonesAfter: 516,
+          stonesBaseDelta: 1,
+          stonesBefore: 500,
+          stonesBonus: 15,
+          stonesDelta: 16,
+        }),
+        expect.objectContaining({
+          coeurDePierre: false,
+          mainDePierreOccurrences: 2,
+          oeilEnPierre: false,
+          seat: 'player-two',
+          stonesAfter: -495,
+          stonesBaseDelta: -1,
+          stonesBefore: -500,
+          stonesBonus: 6,
+          stonesDelta: 5,
+        }),
+      ]),
+    );
+  });
+
+  it('rates only five duels per unordered pair in a sliding 24-hour window', async () => {
+    if (database === null) return;
+    const results = new DrizzleMultiplayerResultRepository(database.db);
+
+    for (const [index, gameId] of PAIR_GAME_IDS.slice(0, 5).entries()) {
+      const recordedAt = new Date(NOW.getTime() + index * 60_000);
+      await expect(
+        results.save(
+          resultAt({
+            completedAt: recordedAt,
+            gameId,
+            swapUsers: index % 2 === 1,
+          }),
+          recordedAt,
+        ),
+      ).resolves.toMatchObject({ kind: 'created' });
+    }
+
+    const sixthRecordedAt = new Date(NOW.getTime() + 5 * 60_000);
+    const sixth = resultAt({
+      completedAt: sixthRecordedAt,
+      gameId: PAIR_GAME_IDS[5],
+      swapUsers: true,
+    });
+    await expect(results.save(sixth, sixthRecordedAt)).resolves.toMatchObject({ kind: 'created' });
+    await expect(results.save(sixth, sixthRecordedAt)).resolves.toMatchObject({ kind: 'existing' });
+
+    const firstSixRatings = await database.db
+      .select({ gameId: schema.multiplayerGame.gameId, rated: schema.multiplayerGame.rated })
+      .from(schema.multiplayerGame)
+      .where(inArray(schema.multiplayerGame.gameId, PAIR_GAME_IDS.slice(0, 6)));
+    expect(firstSixRatings.filter((game) => game.rated)).toHaveLength(5);
+    expect(firstSixRatings).toContainEqual({ gameId: PAIR_GAME_IDS[5], rated: false });
+
+    const sixthParticipants = await database.db
+      .select()
+      .from(schema.multiplayerParticipant)
+      .where(eq(schema.multiplayerParticipant.gameId, PAIR_GAME_IDS[5]));
+    expect(sixthParticipants).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          stonesBaseDelta: 0,
+          stonesBonus: 0,
+          stonesDelta: 0,
+        }),
+      ]),
+    );
+
+    const afterSix = await database.db
+      .select()
+      .from(schema.playerStones)
+      .where(inArray(schema.playerStones.userId, ['multiplayer-user-a', 'multiplayer-user-b']));
+    expect(afterSix).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ ratedGames: 5, userId: 'multiplayer-user-a' }),
+        expect.objectContaining({ ratedGames: 5, userId: 'multiplayer-user-b' }),
+      ]),
+    );
+
+    const boundary = new Date(NOW.getTime() + 24 * 60 * 60_000);
+    await expect(
+      results.save(
+        resultAt({
+          completedAt: boundary,
+          gameId: PAIR_GAME_IDS[6],
+        }),
+        boundary,
+      ),
+    ).resolves.toMatchObject({ kind: 'created' });
+
+    await expect(
+      database.db
+        .select({ rated: schema.multiplayerGame.rated })
+        .from(schema.multiplayerGame)
+        .where(eq(schema.multiplayerGame.gameId, PAIR_GAME_IDS[6])),
+    ).resolves.toEqual([{ rated: true }]);
   });
 
   it('anonymizes only the deleted participant in the shared result', async () => {

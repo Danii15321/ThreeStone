@@ -7,6 +7,7 @@ import {
   type CreateMultiplayerRoomResponse,
   type JoinMultiplayerRoomResponse,
 } from '@three-stone/api-contracts';
+import { getStonesClass } from '@three-stone/game-core';
 import { issueAdmissionTicket, type AdmissionTicketClaims } from '@three-stone/protocol/node';
 
 const TICKET_LIFETIME_MS = 45_000;
@@ -68,6 +69,7 @@ export interface MultiplayerAdmissionDependencies {
   readonly gameServer: GameServerAdmissionGateway;
   readonly gameServerUrl: string;
   readonly leases: MultiplayerLeaseGateway;
+  readonly readStones?: (userId: string) => Promise<number>;
   readonly serverInstanceId: string;
   readonly ticketSecret: string;
 }
@@ -116,7 +118,7 @@ export class MultiplayerAdmissionService {
         throw new RoomUnavailableError();
       }
       return createMultiplayerRoomResponseSchema.parse({
-        ...this.issueAdmission(account, reservation, now),
+        ...(await this.issueAdmission(account, reservation, now)),
         inviteCode,
       });
     } catch {
@@ -160,7 +162,9 @@ export class MultiplayerAdmissionService {
       });
       throw new RoomUnavailableError();
     }
-    return joinMultiplayerRoomResponseSchema.parse(this.issueAdmission(account, reservation, now));
+    return joinMultiplayerRoomResponseSchema.parse(
+      await this.issueAdmission(account, reservation, now),
+    );
   }
 
   async refresh(account: AccountMetadata, roomId: string): Promise<JoinMultiplayerRoomResponse> {
@@ -176,15 +180,18 @@ export class MultiplayerAdmissionService {
     if (!this.isUsableReservation(reservation, roomId)) {
       throw new RoomUnavailableError();
     }
-    return joinMultiplayerRoomResponseSchema.parse(this.issueAdmission(account, reservation, now));
+    return joinMultiplayerRoomResponseSchema.parse(
+      await this.issueAdmission(account, reservation, now),
+    );
   }
 
-  private issueAdmission(
+  private async issueAdmission(
     account: AccountMetadata,
     reservation: SeatReservation,
     now: Date,
-  ): JoinMultiplayerRoomResponse {
+  ): Promise<JoinMultiplayerRoomResponse> {
     const expiresAt = now.getTime() + TICKET_LIFETIME_MS;
+    const stones = (await this.dependencies.readStones?.(account.id)) ?? 0;
     const claims: AdmissionTicketClaims = {
       avatarUrl: account.image,
       connectionGeneration: reservation.connectionGeneration,
@@ -193,6 +200,8 @@ export class MultiplayerAdmissionService {
       jti: this.dependencies.createUuid(),
       playerId: reservation.playerId,
       roomId: reservation.roomId,
+      stoneClass: getStonesClass(stones),
+      stones,
       userId: account.id,
       username: account.displayUsername,
     };

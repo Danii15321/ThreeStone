@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { CreateMultiplayerRoomResponse } from '@three-stone/api-contracts';
+import { LEGACY_PROTOCOL_VERSION, PROTOCOL_VERSION } from '@three-stone/protocol';
 
 import {
   MultiplayerClient,
@@ -63,16 +64,20 @@ function snapshot(sequence: number) {
       'player-one': {
         avatarUrl: null,
         connected: true,
+        stoneClass: 'B',
+        stones: 0,
         username: 'Astrid',
       },
       'player-two': {
         avatarUrl: '/api/profile/avatar?v=1',
         connected: true,
+        stoneClass: 'B',
+        stones: 0,
         username: 'Bjorn',
       },
     },
     predictions: {},
-    protocolVersion: 2,
+    protocolVersion: PROTOCOL_VERSION,
     ready: { 'player-one': true, 'player-two': true },
     rematch: {
       accepted: { 'player-one': false, 'player-two': false },
@@ -86,6 +91,7 @@ function snapshot(sequence: number) {
     sequence,
     serverNow: 1_775_000_000_000,
     sessionScore: { 'player-one': 0, 'player-two': 0 },
+    stonesSettlement: null,
     terminalReason: null,
     type: 'room.snapshot',
     winner: null,
@@ -137,7 +143,7 @@ describe('MultiplayerClient', () => {
     room.emit('seat.observation', {
       ownHiddenChoice: 2,
       playerId: 'player-two',
-      protocolVersion: 2,
+      protocolVersion: LEGACY_PROTOCOL_VERSION,
       sequence: 2,
       type: 'seat.observation',
     });
@@ -147,7 +153,7 @@ describe('MultiplayerClient', () => {
       opponentHiddenChoice: 1,
       ownHiddenChoice: 2,
       playerId: 'player-two',
-      protocolVersion: 2,
+      protocolVersion: LEGACY_PROTOCOL_VERSION,
       sequence: 2,
       type: 'seat.observation',
     });
@@ -164,7 +170,7 @@ describe('MultiplayerClient', () => {
     room.emit('command.rejected', {
       commandId: 'command-id-0001',
       error: { code: 'SEQUENCE_STALE', recoverable: true },
-      protocolVersion: 2,
+      protocolVersion: PROTOCOL_VERSION,
       sequence: 6,
       type: 'command.rejected',
     });
@@ -200,7 +206,7 @@ describe('MultiplayerClient', () => {
     initialRoom.emit('room.resume-token', {
       connectionGeneration: 1,
       expiresAt: 1_775_000_060_000,
-      protocolVersion: 2,
+      protocolVersion: PROTOCOL_VERSION,
       token: 'resume-token'.padEnd(43, '0'),
       type: 'room.resume-token',
     });
@@ -219,7 +225,7 @@ describe('MultiplayerClient', () => {
     expect(client.getState()).not.toHaveProperty('resumeToken');
     expect(resumedRoom.sent).toContainEqual({
       type: 'sync',
-      payload: { protocolVersion: 2 },
+      payload: { protocolVersion: PROTOCOL_VERSION },
     });
   });
 
@@ -284,7 +290,7 @@ describe('MultiplayerClient', () => {
     room.emit('session.reaction', {
       expiresAt: 1_775_000_003_000,
       playerId: 'player-one',
-      protocolVersion: 2,
+      protocolVersion: PROTOCOL_VERSION,
       reaction: 'well-played',
       sequence: 8,
       type: 'session.reaction',

@@ -194,7 +194,7 @@ API et serveur de jeu.
 
 ### RED
 
-- validation de chaque commande et réponse du protocole `2.0` ;
+- validation de chaque commande et réponse du protocole `3` ;
 - rejet des champs inconnus, valeurs invalides et messages trop grands ;
 - absence réelle du choix adverse avec `hasOwnProperty` ;
 - absence de borne dérivée et d’indicateur de soumission adverse ;
@@ -444,13 +444,19 @@ social.
 ### GREEN
 
 - ajouter score et demande de rejouer à l’état mémoire du salon ;
-- conserver la validation des réactions du protocole 2 sans les exposer dans le client officiel ;
+- conserver la validation des réactions du protocole 3 sans les exposer dans le client officiel ;
 - persister le résultat, les manches et le transfert de Stones dans une
   transaction idempotente ;
 - exposer l’historique et un récapitulatif par manche ;
 - fusionner solo et multijoueur dans le Journal de jeu ;
 - afficher le total de parties et les Stones définies par
   [`rules/stones-v2.md`](./rules/stones-v2.md), sans classement public.
+- calculer les classes B/A/S et les trois récompenses à partir du transcript
+  révélé dans `game-core` ;
+- limiter à cinq les duels classés d’une paire sur 24 h, dans la même
+  transaction que le règlement ;
+- publier le règlement autoritaire aux deux clients et afficher les valeurs
+  avant/base/bonus/net/après, y compris lorsque le perdant termine positif.
 
 ### Porte V2-08
 
@@ -459,6 +465,9 @@ social.
 - graine et transcript reproduisent le déroulé validé ;
 - une répétition du même résultat ne modifie les Stones qu’une seule fois ;
 - une victoire courte transfère plus de Stones qu’une victoire longue ;
+- les frontières de classe, Main ×4, Œil +9, Cœur +6 après remontée exacte de
+  3–1 et le sixième duel amical sont couverts par des tests ;
+- aucune panne de persistance ne produit un faux règlement dans le snapshot ;
 - fermeture du salon efface score, état de rejeu, réactions de compatibilité et jetons.
 
 Commit suggéré : `feat(multiplayer): ajoute rejouer score et historique`.

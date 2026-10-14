@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-export const PROTOCOL_VERSION = 2 as const;
+export const PROTOCOL_VERSION = 3 as const;
+export const LEGACY_PROTOCOL_VERSION = 2 as const;
 export const MAX_CLIENT_MESSAGE_BYTES = 1_024;
 
 const commandIdSchema = z.string().min(8).max(128);
@@ -8,7 +9,9 @@ const roomIdSchema = z.string().min(8).max(128);
 const sequenceSchema = z.number().int().nonnegative();
 
 const envelope = {
-  protocolVersion: z.literal(PROTOCOL_VERSION),
+  // Version 2 commands remain accepted during the rolling v3 deployment. All
+  // server messages are nevertheless emitted with the current version.
+  protocolVersion: z.union([z.literal(LEGACY_PROTOCOL_VERSION), z.literal(PROTOCOL_VERSION)]),
   commandId: commandIdSchema,
   roomId: roomIdSchema,
   knownSequence: sequenceSchema,

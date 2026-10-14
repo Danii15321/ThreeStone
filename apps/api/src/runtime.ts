@@ -23,6 +23,7 @@ export function createApiRuntime(source: NodeJS.ProcessEnv = process.env) {
   });
   const profileService = new ProfileService(new DrizzlePlayerRepository(database.db));
   const resultsService = new SoloResultsService(new DrizzleSoloResultRepository(database.db));
+  const multiplayerHistoryRepository = new DrizzleMultiplayerHistoryRepository(database.db);
   const multiplayerAdmissionService = new MultiplayerAdmissionService({
     clock: () => new Date(),
     createInviteCode,
@@ -34,6 +35,7 @@ export function createApiRuntime(source: NodeJS.ProcessEnv = process.env) {
     }),
     gameServerUrl: environment.GAME_SERVER_PUBLIC_URL,
     leases: new DrizzleMultiplayerLeaseRepository(database.db),
+    readStones: async (userId) => (await multiplayerHistoryRepository.stats(userId)).stones,
     serverInstanceId: environment.GAME_SERVER_INSTANCE_ID,
     ticketSecret: environment.MULTIPLAYER_TICKET_SECRET,
   });
@@ -46,9 +48,7 @@ export function createApiRuntime(source: NodeJS.ProcessEnv = process.env) {
     ),
     maxRequestBodyBytes: environment.MAX_REQUEST_BODY_BYTES,
     multiplayerAdmissionService,
-    multiplayerHistoryService: new MultiplayerHistoryService(
-      new DrizzleMultiplayerHistoryRepository(database.db),
-    ),
+    multiplayerHistoryService: new MultiplayerHistoryService(multiplayerHistoryRepository),
     multiplayerRateLimiter: new FixedWindowRateLimiter(
       environment.MULTIPLAYER_RATE_LIMIT_MAX,
       environment.MULTIPLAYER_RATE_LIMIT_WINDOW_SECONDS * 1_000,
